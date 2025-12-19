@@ -1,62 +1,131 @@
-# Effekt Template
+# Wave Management Simulator
 
-> [!WARNING]
-> This is a work-in-progress, feel free to contribute!
+An interactive educational tool for learning League of Legends wave management. Users can observe and manipulate minion waves using different tools to understand how waves behave and how to achieve different wave states (freeze, slow push, crash, etc.).
 
-This template provides a starting point for Effekt projects.
+## Table of Contents
 
-## Table of contents
-
-- [First steps](#first-steps)
-- [Useful commands](#useful-commands)
-  - [Effekt commands](#effekt-commands)
-  - [Nix-related commands](#nix-related-commands)
-- [Example projects](#example-projects-using-this-template)
-- [Repository structure](#repository-structure)
-- [CI](#ci)
+- [Features](#features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Running the Simulator](#running-the-simulator)
+- [Development](#development)
+  - [Project Structure](#project-structure)
+  - [Useful Commands](#useful-commands)
+- [CI/CD](#cicd)
+- [License](#license)
 
 ---
 
-## First steps
+## Features
 
-After using this template, follow these steps to set up your project:
+### Core Simulation
+- **Mid lane simulation** with both turrets
+- **Three minion types**: Melee, Caster, and Cannon minions with realistic stats (HP, damage, attack speed)
+- **Realistic spawn mechanics**: Minions spawn every 30 seconds, Cannon minions every 3rd wave
+- **Combat AI**: Minions walk towards each other and engage in combat with basic aggro system
+- **Turret mechanics**: Turret damage and aggro system
 
-1. Set up your development environment:
-   - Clone this repository locally.
-   - Open it in VSCode.
-   - Install the Effekt VSCode extension offered in the pop-up in the bottom right.
+### Interactive Tools
+- **Last-Hit Tool**: Kill minions only when below a certain threshold (simulates last-hitting)
+- **AoE Tool**: Deal damage in an area that can or cannot kill minions
+- **Kill Casters**: Remove all caster minions from one wave (slow-push setup)
+- **Full Clear**: Kill all enemy minions in a range (hard push)
+- **Tank Tool**: Absorb minion attacks when they aggro
 
-2. Customize the project:
-   - Open `flake.nix` and update the project name and other relevant values (follow the comments).
-   - Push your `flake.nix` file after the changes and see if the CI agrees.
+### Visualization
+- 2D GUI showing lane view with minions from both teams
+- HP bars for all units
+- Turrets at both ends with realistic stats
+- Visual distinction between minion types and teams
+- Tool interface
 
-3. Set-up auto-update CI in order to get weekly PRs on Tuesday which update the Effekt version in CI:
-   - Go to Settings -> Actions -> General:
-     - and set "Workflow permissions" to "Read and write permissions"
-     - and check "Allow GitHub Actions to create and approve pull requests"    
-   - See the [CI](#ci) section for more details
+### Controls
+- Play/Pause/Reset simulation
+- Speed control (1x, 2x, 4x)
+- Tool selection panel
+- Time display and wave counter
+- Next spawn timer
 
-3. Replace this `README` with your own!
+## Getting Started
 
-## Useful commands
+### Prerequisites
 
-### Effekt commands
+This project uses the [Effekt](https://effekt-lang.org/) programming language with effects and handlers.
+
+You have two options for setting up your development environment:
+
+**Option 1: Using Nix (Recommended)**
+- Install [Nix](https://nixos.org/download.html) with flakes enabled
+- All dependencies will be managed automatically
+
+**Option 2: Manual Installation**
+- Install [Effekt](https://effekt-lang.org/docs/getting-started) manually
+- Install the Effekt VSCode extension
+
+### Installation
+
+1. **Clone the repository:**
+   ```sh
+   git clone https://github.com/jonez-x/wave-management-sim.git
+   cd wave-management-sim
+   ```
+
+2. **Set up your development environment:**
+   
+   **With Nix:**
+   ```sh
+   nix develop
+   ```
+   
+   **With VSCode:**
+   - Open the project in VSCode
+   - Install the Effekt VSCode extension when prompted
+
+### Running the Simulator
+
+**Using Effekt directly:**
+```sh
+effekt src/main.effekt
+```
+
+**Using Nix:**
+```sh
+nix run
+```
+
+The simulator will compile to JavaScript and run in your browser.
+
+## Development
+
+### Project Structure
+
+```
+wave-management-sim/
+├── .github/
+│   └── workflows/        # CI/CD workflows
+├── src/
+│   ├── main.effekt      # Main entry point
+│   ├── test.effekt      # Test suite
+│   └── lib.effekt       # Library code
+├── flake.nix            # Nix package configuration
+├── flake.lock           # Nix dependency lockfile
+├── PROJECT_SPEC.md      # Detailed project specification
+└── README.md            # This file
+```
+
+### Useful Commands
+
+#### Effekt Commands
 
 Run the main file:
 ```sh
 effekt src/main.effekt
 ```
-This (like many other Effekt commands) uses the JavaScript backend by default.
-To use a different backend, add the `--backend <backend>` flag.
 
 Run the tests:
 ```sh
 effekt src/test.effekt
-```
-
-Open the REPL:
-```sh
-effekt
 ```
 
 Build the project:
@@ -65,21 +134,24 @@ effekt --build src/main.effekt
 ```
 This builds the project into the `out/` directory, creating a runnable file `out/main`.
 
-To see all available options and backends, run:
+Open the REPL:
+```sh
+effekt
+```
+
+To see all available options and backends:
 ```sh
 effekt --help
 ```
 
-### Nix-related commands
-
-While Nix installation is optional, it provides several benefits:
+#### Nix Commands
 
 Update dependencies (also runs automatically in CI):
 ```sh
 nix flake update
 ```
 
-Open a shell with all necessary dependencies:
+Open a development shell with all dependencies:
 ```sh
 nix develop
 ```
@@ -94,34 +166,32 @@ Build the project (output in `result/bin/`):
 nix build
 ```
 
-## Example projects using this template
+## CI/CD
 
-- [see the `effekt-community` GitHub organization](https://github.com/effekt-community/)
-- This very project!
+Two GitHub Actions are configured:
 
-## Repository structure
-
-- `.github/workflows/*.yml`: Contains the [CI](#ci) definitions
-- `src/`: Contains the source code
-  - `main.effekt`: Main entry point
-  - `test.effekt`: Entry point for tests
-  - `lib.effekt`: Library code imported by `main` and `test`
-- `flake.nix`: Package configuration in a Nix flake
-- `flake.lock`: Auto-generated lockfile for dependencies
-- `LICENSE`: Project license
-- `README`: This README file
-
-## CI
-
-Two GitHub Actions are set up:
-
-1. `flake-check`:
+1. **`flake-check`**:
    - Checks the `flake.nix` file, builds and tests the project
    - Runs on demand, on `main`, and on PRs
-   - To run custom commands, add a step using:
-     - `nix run -- <ARGS>` to run the main entry point with the given arguments
-     - `nix develop -c '<bash command to run>'` to run commands in the correct environment
+   - Ensures code quality and correctness
 
-2. `update-flake-lock`:
+2. **`update-flake-lock`**:
    - Updates package versions in `flake.nix`
-   - Runs on demand and weekly (Tuesdays at 00:00 UTC)
+   - Runs weekly (Tuesdays at 00:00 UTC)
+   - Automatically creates PRs with Effekt version updates
+
+### Setting up Auto-Update CI
+
+To enable weekly automatic Effekt updates:
+
+1. Go to **Settings → Actions → General**
+2. Set **Workflow permissions** to "Read and write permissions"
+3. Check **"Allow GitHub Actions to create and approve pull requests"**
+
+## License
+
+This project is part of the EPE course at the University of Tübingen.
+
+---
+
+**Built with [Effekt](https://effekt-lang.org/)** - A language with effect handlers and lightweight effect polymorphism.
