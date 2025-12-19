@@ -1,6 +1,5 @@
 {
-  ## TODO: Change to your project's description:
-  description = "Nix template for Effekt projects";
+  description = "Wave Management Simulator - An interactive educational tool for learning League of Legends wave management";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -21,16 +20,15 @@
         effekt-lib = effekt-nix.lib.${system};
 
         ## Project configuration
-        # TODO: Change to your project's details:
-        pname = "effekt-template";         # package name
+        pname = "wave-management-sim";     # package name
         version = "0.1.0";                 # package version
         mainFile = "src/main.effekt";      # relative path to entrypoint (as a string)
         testFiles = [ "src/test.effekt" ]; # relative paths to tests (as a string)
 
         ## Effekt configuration
         effektConfig = {
-          ## Uncomment and set a specific version if needed:
-          # version = "0.10.0";
+          ## Pin to latest stable version (v0.56 as of Dec 2025)
+          version = "0.56.0";
 
           ## Select the backends that your project works on:
           backends = with effekt-lib.effektBackends; [ js ];
