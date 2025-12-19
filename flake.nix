@@ -27,8 +27,9 @@
 
         ## Effekt configuration
         effektConfig = {
-          ## Pin to latest stable version (v0.56 as of Dec 2025)
-          version = "0.56.0";
+          ## Use latest available version from effekt-nix
+          ## (Will be auto-updated by CI weekly)
+          # version = null;  # null = latest available
 
           ## Select the backends that your project works on:
           backends = with effekt-lib.effektBackends; [ js ];
