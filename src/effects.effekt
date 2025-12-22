@@ -1,0 +1,340 @@
+module src/effects
+
+import src/types
+
+// ============ STATE INTERFACE ============
+// Manages the entire game state
+
+interface State {
+  def getState(): GameState
+  def setState(state: GameState): Unit
+}
+
+// Helper functions using State effect
+def getMinions(): List[Minion] / State =
+  do getState().minions
+
+def getBlueTurret(): Turret / State =
+  do getState().blueTurret
+
+def getRedTurret(): Turret / State =
+  do getState().redTurret
+
+def getGameTime(): Double / State =
+  do getState().gameTime
+
+def isPaused(): Bool / State =
+  do getState().isPaused
+
+def getSelectedTool(): Tool / State =
+  do getState().selectedTool
+
+def getSpeed(): SimulationSpeed / State =
+  do getState().speed
+
+def getWaveNumber(): Int / State =
+  do getState().waveNumber
+
+def getNextSpawnTime(): Double / State =
+  do getState().nextSpawnTime
+
+def getWaveState(): WaveState / State =
+  do getState().waveState
+
+// Modifier helpers - using getState/setState
+def setMinions(newMinions: List[Minion]): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    newMinions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def setGameTime(newTime: Double): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    newTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def setPaused(paused: Bool): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    paused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def setSpeed(newSpeed: SimulationSpeed): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    newSpeed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def setSelectedTool(tool: Tool): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    tool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def incrementWaveNumber(): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber + 1,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def setNextSpawnTime(time: Double): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    time,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def setWaveState(newWaveState: WaveState): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    newWaveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def getNextEntityId(): Int / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId + 1,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+  state.nextEntityId
+}
+
+def addMinion(minion: Minion): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    Cons(minion, state.minions),
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def updateBlueTurret(turret: Turret): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    turret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def updateRedTurret(turret: Turret): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    turret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition
+  ))
+}
+
+def setTankPosition(pos: Vec2, isTanking: Bool): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    isTanking,
+    pos
+  ))
+}
+
+// ============ TIME INTERFACE ============
+// Manages simulation time and scheduling
+
+interface Time {
+  def getCurrentTime(): Double
+  def advanceTime(delta: Double): Unit
+  def getSpeedMultiplier(): Double
+}
+
+// ============ INPUT INTERFACE ============
+// Handles user input
+
+interface Input {
+  def getMousePosition(): Vec2
+  def wasClicked(): Bool
+  def isKeyDown(key: String): Bool
+}
+
+// ============ RENDER INTERFACE ============
+// Abstracts rendering operations
+
+interface Render {
+  def clear(): Unit
+  def drawMinion(minion: Minion): Unit
+  def drawTurret(turret: Turret): Unit
+  def drawHealthBar(pos: Vec2, current: Double, max: Double, width: Double): Unit
+  def drawLane(): Unit
+  def drawUI(state: GameState): Unit
+  def drawToolPreview(tool: Tool, mousePos: Vec2): Unit
+  def drawAttackLine(from: Vec2, to: Vec2, team: Team): Unit
+}
+
+// ============ RANDOM INTERFACE ============
+// For any randomization needed
+
+interface Random {
+  def randomDouble(): Double
+  def randomInt(max: Int): Int
+}
+
+// ============ LOGGING INTERFACE ============
+// For debug output
+
+interface Log {
+  def log(message: String): Unit
+  def warn(message: String): Unit
+  def logError(message: String): Unit
+}

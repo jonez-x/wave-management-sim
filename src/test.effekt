@@ -1,10 +1,256 @@
 module src/test
 
 import test
-import src/lib
+import src/types
+import src/effects
+import src/handlers
 
-def main() = mainSuite("lib") {
-  test("Hello world") {
-    assertEqual(helloWorld(), "Hello, world!")
+def main() = mainSuite("Wave Management Simulator Tests") {
+  
+  suite("Types") {
+    test("Vec2 operations - addition") {
+      val v1 = Vec2(3.0, 4.0)
+      val v2 = Vec2(1.0, 2.0)
+      val sum = add(v1, v2)
+      assertEqual(sum.x, 4.0)
+      assertEqual(sum.y, 6.0)
+    }
+    
+    test("Vec2 operations - subtraction") {
+      val v1 = Vec2(3.0, 4.0)
+      val v2 = Vec2(1.0, 2.0)
+      val diff = sub(v1, v2)
+      assertEqual(diff.x, 2.0)
+      assertEqual(diff.y, 2.0)
+    }
+    
+    test("Vec2 operations - scale") {
+      val v1 = Vec2(3.0, 4.0)
+      val scaled = scale(v1, 2.0)
+      assertEqual(scaled.x, 6.0)
+      assertEqual(scaled.y, 8.0)
+    }
+    
+    test("Team opposite") {
+      assertEqual(opposite(Blue()), Red())
+      assertEqual(opposite(Red()), Blue())
+    }
+    
+    test("Team names") {
+      assertEqual(teamName(Blue()), "Blue")
+      assertEqual(teamName(Red()), "Red")
+    }
+    
+    test("Melee MinionStats") {
+      val stats = getMinionStats(Melee())
+      assertEqual(stats.maxHp, 477.0)
+      assertEqual(stats.goldValue, 21)
+    }
+    
+    test("Caster MinionStats") {
+      val stats = getMinionStats(Caster())
+      assertEqual(stats.maxHp, 296.0)
+      assertEqual(stats.goldValue, 14)
+    }
+    
+    test("Cannon MinionStats") {
+      val stats = getMinionStats(Cannon())
+      assertEqual(stats.maxHp, 900.0)
+      assertEqual(stats.goldValue, 60)
+    }
+    
+    test("Minion creation") {
+      val minion = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0))
+      assertEqual(minion.id, 1)
+      assertEqual(minion.currentHp, 477.0)
+      assertEqual(minion.isAlive, true)
+      assertEqual(minion.targetId, -1)
+    }
+    
+    test("Turret creation") {
+      val turret = createTurret(0, Blue(), Vec2(100.0, 200.0))
+      assertEqual(turret.id, 0)
+      assertEqual(turret.currentHp, 5000.0)
+      assertEqual(turret.isAlive, true)
+    }
+    
+    test("Speed multiplier 1x") {
+      assertEqual(speedMultiplier(Speed1x()), 1.0)
+    }
+    
+    test("Speed multiplier 2x") {
+      assertEqual(speedMultiplier(Speed2x()), 2.0)
+    }
+    
+    test("Speed multiplier 4x") {
+      assertEqual(speedMultiplier(Speed4x()), 4.0)
+    }
+    
+    test("Initial state creation") {
+      val state = createInitialState()
+      assertEqual(state.waveNumber, 0)
+      assertEqual(state.gameTime, 0.0)
+      assertEqual(state.isPaused, false)
+    }
   }
+  
+  suite("State Effect") {
+    test("getState returns initial state") {
+      val initial = createInitialState()
+      withState(initial) {
+        val state = do getState()
+        assertEqual(state.waveNumber, 0)
+        assertEqual(state.gameTime, 0.0)
+      }
+    }
+    
+    test("setState updates state") {
+      val initial = createInitialState()
+      withState(initial) {
+        val newState = GameState(
+          Nil(),
+          initial.blueTurret,
+          initial.redTurret,
+          100.0,
+          5,
+          130.0,
+          true,
+          Speed2x(),
+          NoTool(),
+          initial.nextEntityId,
+          Neutral(),
+          false,
+          Vec2(0.0, 0.0)
+        )
+        do setState(newState)
+        val state = do getState()
+        assertEqual(state.gameTime, 100.0)
+        assertEqual(state.waveNumber, 5)
+        assertEqual(state.isPaused, true)
+      }
+    }
+    
+    test("incrementWaveNumber helper") {
+      val initial = createInitialState()
+      withState(initial) {
+        incrementWaveNumber()
+        incrementWaveNumber()
+        val waveNum = getWaveNumber()
+        assertEqual(waveNum, 2)
+      }
+    }
+    
+    test("setGameTime helper") {
+      val initial = createInitialState()
+      withState(initial) {
+        setGameTime(45.5)
+        val time = getGameTime()
+        assertEqual(time, 45.5)
+      }
+    }
+    
+    test("setPaused helper") {
+      val initial = createInitialState()
+      withState(initial) {
+        setPaused(true)
+        val paused = isPaused()
+        assertEqual(paused, true)
+      }
+    }
+    
+    test("setSpeed helper") {
+      val initial = createInitialState()
+      withState(initial) {
+        setSpeed(Speed4x())
+        val speed = getSpeed()
+        assertEqual(speedMultiplier(speed), 4.0)
+      }
+    }
+    
+    test("setSelectedTool helper") {
+      val initial = createInitialState()
+      withState(initial) {
+        setSelectedTool(LastHitTool())
+        val tool = getSelectedTool()
+        assertEqual(toolName(tool), "Last Hit")
+      }
+    }
+    
+    test("getNextEntityId increments") {
+      val initial = createInitialState()
+      withState(initial) {
+        val id1 = getNextEntityId()
+        val id2 = getNextEntityId()
+        val id3 = getNextEntityId()
+        assertEqual(id2, id1 + 1)
+        assertEqual(id3, id2 + 1)
+      }
+    }
+    
+    test("addMinion adds to list") {
+      val initial = createInitialState()
+      withState(initial) {
+        val minion = createMinion(10, Blue(), Melee(), Vec2(200.0, 200.0))
+        addMinion(minion)
+        val minions = getMinions()
+        assertEqual(listLength(minions), 1)
+      }
+    }
+  }
+  
+  suite("Time Effect") {
+    test("getCurrentTime returns initial") {
+      withTime(0.0, Speed1x()) {
+        val time = do getCurrentTime()
+        assertEqual(time, 0.0)
+      }
+    }
+    
+    test("advanceTime with 1x speed") {
+      withTime(0.0, Speed1x()) {
+        do advanceTime(1.0)
+        val time = do getCurrentTime()
+        assertEqual(time, 1.0)
+      }
+    }
+    
+    test("advanceTime with 2x speed") {
+      withTime(0.0, Speed2x()) {
+        do advanceTime(1.0)
+        val time = do getCurrentTime()
+        assertEqual(time, 2.0)
+      }
+    }
+    
+    test("getSpeedMultiplier") {
+      withTime(0.0, Speed4x()) {
+        val mult = do getSpeedMultiplier()
+        assertEqual(mult, 4.0)
+      }
+    }
+  }
+  
+  suite("List Helpers") {
+    test("listLength empty") {
+      val empty: List[Int] = Nil()
+      assertEqual(listLength(empty), 0)
+    }
+    
+    test("listLength one") {
+      val one = Cons(1, Nil())
+      assertEqual(listLength(one), 1)
+    }
+    
+    test("listLength three") {
+      val three = Cons(1, Cons(2, Cons(3, Nil())))
+      assertEqual(listLength(three), 3)
+    }
+    
+    test("listFilter") {
+      val nums = Cons(1, Cons(2, Cons(3, Cons(4, Nil()))))
+      val greaterThan2 = listFilter(nums) { n => n > 2 }
+      assertEqual(listLength(greaterThan2), 2)
+    }
+  }
+  ()
 }
