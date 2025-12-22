@@ -1,0 +1,123 @@
+module src/ffi/events
+
+// ============================================================
+// DOM Events FFI Bindings for User Input
+// ============================================================
+
+extern js """
+  let $mouseX = 0;
+  let $mouseY = 0;
+  let $mouseClicked = false;
+  let $mouseDown = false;
+  let $keysPressed = {};
+  let $keysJustPressed = {};
+  
+  function $initEvents(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+      console.error('Canvas not found:', canvasId);
+      return false;
+    }
+    
+    canvas.addEventListener('mousemove', function(e) {
+      const rect = canvas.getBoundingClientRect();
+      $mouseX = e.clientX - rect.left;
+      $mouseY = e.clientY - rect.top;
+    });
+    
+    canvas.addEventListener('mousedown', function(e) {
+      $mouseDown = true;
+      $mouseClicked = true;
+    });
+    
+    canvas.addEventListener('mouseup', function(e) {
+      $mouseDown = false;
+    });
+    
+    canvas.addEventListener('mouseleave', function(e) {
+      $mouseDown = false;
+    });
+    
+    document.addEventListener('keydown', function(e) {
+      if (!$keysPressed[e.key]) {
+        $keysJustPressed[e.key] = true;
+      }
+      $keysPressed[e.key] = true;
+      if (e.key === ' ') {
+        e.preventDefault();
+      }
+    });
+    
+    document.addEventListener('keyup', function(e) {
+      $keysPressed[e.key] = false;
+      $keysJustPressed[e.key] = false;
+    });
+    
+    return true;
+  }
+  
+  function $getMouseX() { 
+    return $mouseX; 
+  }
+  
+  function $getMouseY() { 
+    return $mouseY; 
+  }
+  
+  function $isMouseDown() {
+    return $mouseDown;
+  }
+  
+  function $wasMouseClicked() { 
+    const clicked = $mouseClicked;
+    $mouseClicked = false;
+    return clicked;
+  }
+  
+  function $isKeyPressed(key) { 
+    return $keysPressed[key] === true;
+  }
+  
+  function $wasKeyJustPressed(key) {
+    const pressed = $keysJustPressed[key] === true;
+    $keysJustPressed[key] = false;
+    return pressed;
+  }
+  
+  function $clearInputState() {
+    $mouseClicked = false;
+    $keysJustPressed = {};
+  }
+"""
+
+// Initialize event listeners on the canvas
+extern def initEvents(canvasId: String): Bool =
+  js "$initEvents(${canvasId})"
+
+// Get current mouse X position
+extern def getMouseX(): Double =
+  js "$getMouseX()"
+
+// Get current mouse Y position  
+extern def getMouseY(): Double =
+  js "$getMouseY()"
+
+// Check if mouse button is currently held down
+extern def isMouseDown(): Bool =
+  js "$isMouseDown()"
+
+// Check if mouse was clicked (returns true once per click)
+extern def wasMouseClicked(): Bool =
+  js "$wasMouseClicked()"
+
+// Check if a key is currently held down
+extern def isKeyPressed(key: String): Bool =
+  js "$isKeyPressed(${key})"
+
+// Check if a key was just pressed (returns true once per press)
+extern def wasKeyJustPressed(key: String): Bool =
+  js "$wasKeyJustPressed(${key})"
+
+// Clear input state (call at end of frame)
+extern def clearInputState(): Unit =
+  js "$clearInputState()"

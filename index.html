@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Management Simulator</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Roboto:wght@300;400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --gold-light: #C8AA6E;
+      --gold: #C89B3C;
+      --gold-dark: #785A28;
+      --blue-light: #0AC8B9;
+      --blue: #0397AB;
+      --blue-dark: #005A82;
+      --bg-dark: #010A13;
+      --bg-medium: #0A1428;
+      --bg-light: #1E2328;
+      --border-dark: #1E282D;
+      --border-light: #463714;
+      --text-light: #A09B8C;
+      --text-bright: #F0E6D2;
+    }
+
+    body {
+      background: var(--bg-dark);
+      background-image:
+        radial-gradient(ellipse at 50% 0%, rgba(10, 200, 185, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 100%, rgba(200, 155, 60, 0.05) 0%, transparent 50%),
+        linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-medium) 50%, var(--bg-dark) 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: 'Roboto', sans-serif;
+      color: var(--text-light);
+      padding: 20px;
+    }
+
+    /* League-style header */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .header::before,
+    .header::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 120px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    }
+
+    .header::before {
+      left: -140px;
+    }
+
+    .header::after {
+      right: -140px;
+    }
+
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      text-shadow: 0 0 20px rgba(200, 155, 60, 0.4);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-family: 'Cinzel', serif;
+      font-size: 0.85rem;
+      color: var(--text-light);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* Canvas container with ornate border */
+    .canvas-container {
+      position: relative;
+      padding: 8px;
+      background: linear-gradient(180deg, var(--gold-dark) 0%, var(--border-light) 50%, var(--gold-dark) 100%);
+      clip-path: polygon(0 15px, 15px 0, calc(100% - 15px) 0, 100% 15px,
+          100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px));
+    }
+
+    .canvas-inner {
+      background: var(--bg-dark);
+      padding: 3px;
+      clip-path: polygon(0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px,
+          100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px));
+    }
+
+    #gameCanvas {
+      display: block;
+      cursor: crosshair;
+      clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px,
+          100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
+    }
+
+    /* Corner decorations */
+    .corner-decor {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border: 2px solid var(--gold);
+      pointer-events: none;
+    }
+
+    .corner-decor.top-left {
+      top: -5px;
+      left: -5px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .corner-decor.top-right {
+      top: -5px;
+      right: -5px;
+      border-left: none;
+      border-bottom: none;
+    }
+
+    .corner-decor.bottom-left {
+      bottom: -5px;
+      left: -5px;
+      border-right: none;
+      border-top: none;
+    }
+
+    .corner-decor.bottom-right {
+      bottom: -5px;
+      right: -5px;
+      border-left: none;
+      border-top: none;
+    }
+
+    /* Control panels */
+    .controls {
+      margin-top: 25px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 1200px;
+    }
+
+    .control-group {
+      background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-medium) 100%);
+      border: 1px solid var(--gold-dark);
+      border-top-color: var(--gold);
+      padding: 15px 20px;
+      min-width: 180px;
+      position: relative;
+      clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px,
+          100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
+    }
+
+    .control-group::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20%;
+      right: 20%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
+    }
+
+    .control-group h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gold-light);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .control-group p {
+      font-size: 13px;
+      color: var(--text-light);
+      line-height: 1.8;
+    }
+
+    kbd {
+      display: inline-block;
+      background: linear-gradient(180deg, var(--bg-dark) 0%, #0A0E13 100%);
+      border: 1px solid var(--gold-dark);
+      border-bottom-width: 2px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: 'Roboto', monospace;
+      font-weight: 500;
+      color: var(--gold-light);
+      margin: 2px;
+      min-width: 24px;
+      text-align: center;
+    }
+
+    /* Status bar */
+    .status-bar {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--blue-light);
+      box-shadow: 0 0 10px var(--blue-light);
+      animation: pulse 2s infinite;
+    }
+
+    .status-indicator.error {
+      background: #E84057;
+      box-shadow: 0 0 10px #E84057;
+      animation: none;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    #status {
+      font-size: 13px;
+      color: var(--text-light);
+      padding: 8px 20px;
+      background: var(--bg-light);
+      border: 1px solid var(--border-dark);
+      border-left: 3px solid var(--blue-light);
+    }
+
+    #status.error {
+      border-left-color: #E84057;
+      color: #E84057;
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-dark);
+      color: var(--text-light);
+      font-size: 11px;
+      text-align: center;
+      opacity: 0.7;
+    }
+
+    footer a {
+      color: var(--gold-light);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: var(--gold);
+      text-shadow: 0 0 10px rgba(200, 155, 60, 0.5);
+    }
+
+    /* Tool highlight effects */
+    .tool-key {
+      color: var(--blue-light);
+    }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      width: 100%;
+      max-width: 800px;
+      margin: 15px 0;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold-dark), transparent);
+    }
+
+    .divider-icon {
+      width: 20px;
+      height: 20px;
+      border: 1px solid var(--gold-dark);
+      transform: rotate(45deg);
+      background: var(--bg-medium);
+    }
+
+    .divider-icon::after {
+      content: '';
+      display: block;
+      width: 8px;
+      height: 8px;
+      margin: 5px;
+      background: var(--gold-dark);
+    }
+
+    /* Responsive */
+    @media (max-width: 1250px) {
+
+      .header::before,
+      .header::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="header">
+    <h1>Wave Management</h1>
+    <p class="subtitle">Master the Art of Minion Control</p>
+  </header>
+
+  <div class="canvas-container">
+    <div class="corner-decor top-left"></div>
+    <div class="corner-decor top-right"></div>
+    <div class="corner-decor bottom-left"></div>
+    <div class="corner-decor bottom-right"></div>
+    <div class="canvas-inner">
+      <canvas id="gameCanvas" width="1200" height="400"></canvas>
+    </div>
+  </div>
+
+  <div class="divider">
+    <div class="divider-icon"></div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <h3>Simulation</h3>
+      <p>
+        <kbd>Space</kbd> Pause/Play<br>
+        <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Speed
+      </p>
+    </div>
+    <div class="control-group">
+      <h3>Wave Tools</h3>
+      <p>
+        <kbd class="tool-key">Q</kbd> Last Hit<br>
+        <kbd class="tool-key">W</kbd> AoE Damage<br>
+        <kbd class="tool-key">E</kbd> Kill Casters
+      </p>
+    </div>
+    <div class="control-group">
+      <h3>Advanced</h3>
+      <p>
+        <kbd class="tool-key">R</kbd> Full Clear<br>
+        <kbd class="tool-key">T</kbd> Tank Minions
+      </p>
+    </div>
+    <div class="control-group">
+      <h3>System</h3>
+      <p>
+        <kbd>Esc</kbd> Deselect<br>
+        <kbd>Shift</kbd>+<kbd>R</kbd> Reset
+      </p>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-indicator" id="statusIndicator"></div>
+    <div id="status">Initializing...</div>
+  </div>
+
+  <footer>
+    Built with <a href="https://effekt-lang.org/" target="_blank">Effekt</a> •
+    EPE Course @ University of Tübingen
+  </footer>
+
+  <script>
+    function setStatus(message, isError = false) {
+      const status = document.getElementById('status');
+      const indicator = document.getElementById('statusIndicator');
+      status.textContent = message;
+      status.className = isError ? 'error' : '';
+      indicator.className = isError ? 'status-indicator error' : 'status-indicator';
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+      setStatus('Loading simulation...');
+    });
+
+    window.addEventListener('error', function (e) {
+      setStatus('Error: ' + e.message, true);
+    });
+  </script>
+
+  <!-- Compiled Effekt code -->
+  <script src="out/main.js"></script>
+  <script>
+    try {
+      if (typeof $main !== 'undefined' && typeof $main.main === 'function') {
+        $main.main();
+        setStatus('Simulation active • Move mouse to interact');
+        console.log('Effekt main() called successfully');
+      } else {
+        setStatus('Error: Game module not found', true);
+        console.error('$main namespace:', typeof $main);
+      }
+    } catch (e) {
+      setStatus('Error: ' + e.message, true);
+      console.error('Error calling main:', e);
+    }
+  </script>
+</body>
+
+</html>

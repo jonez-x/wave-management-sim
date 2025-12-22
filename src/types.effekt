@@ -1,0 +1,408 @@
+module src/types
+
+// ============================================================
+// Wave Management Simulator - Core Data Types
+// Phase 2: Type definitions for simulation entities
+// ============================================================
+
+// ============ POSITION & VECTORS ============
+
+record Vec2(x: Double, y: Double)
+
+def add(v1: Vec2, v2: Vec2): Vec2 =
+  Vec2(v1.x + v2.x, v1.y + v2.y)
+
+def sub(v1: Vec2, v2: Vec2): Vec2 =
+  Vec2(v1.x - v2.x, v1.y - v2.y)
+
+def scale(v: Vec2, s: Double): Vec2 =
+  Vec2(v.x * s, v.y * s)
+
+def magnitude(v: Vec2): Double = {
+  val sq = v.x * v.x + v.y * v.y
+  sqrt(sq)
+}
+
+def normalize(v: Vec2): Vec2 = {
+  val mag = magnitude(v)
+  if (mag > 0.0) Vec2(v.x / mag, v.y / mag)
+  else Vec2(0.0, 0.0)
+}
+
+def distance(p1: Vec2, p2: Vec2): Double =
+  magnitude(sub(p2, p1))
+
+// Square root approximation using Newton's method
+def sqrt(x: Double): Double = {
+  if (x <= 0.0) 0.0
+  else {
+    // Newton's method for square root
+    def iterate(guess: Double, n: Int): Double = {
+      if (n <= 0) guess
+      else {
+        val better = (guess + x / guess) / 2.0
+        iterate(better, n - 1)
+      }
+    }
+    iterate(x / 2.0, 10)
+  }
+}
+
+// ============ TEAM ============
+
+type Team {
+  Blue()
+  Red()
+}
+
+def opposite(team: Team): Team =
+  team match {
+    case Blue() => Red()
+    case Red() => Blue()
+  }
+
+def teamName(team: Team): String =
+  team match {
+    case Blue() => "Blue"
+    case Red() => "Red"
+  }
+
+// ============ MINION TYPES ============
+
+type MinionType {
+  Melee()
+  Caster()
+  Cannon()
+}
+
+def minionTypeName(minionType: MinionType): String =
+  minionType match {
+    case Melee() => "Melee"
+    case Caster() => "Caster"
+    case Cannon() => "Cannon"
+  }
+
+// ============ MINION STATS (League-accurate) ============
+
+record MinionStats(
+  maxHp: Double,
+  attackDamage: Double,
+  attackSpeed: Double,      // attacks per second
+  attackRange: Double,      // pixels
+  movementSpeed: Double,    // pixels per second
+  goldValue: Int
+)
+
+def getMinionStats(minionType: MinionType): MinionStats =
+  minionType match {
+    case Melee() => MinionStats(
+      maxHp = 477.0,
+      attackDamage = 12.0,
+      attackSpeed = 1.25,
+      attackRange = 110.0,
+      movementSpeed = 325.0,
+      goldValue = 21
+    )
+    case Caster() => MinionStats(
+      maxHp = 296.0,
+      attackDamage = 23.0,
+      attackSpeed = 0.67,
+      attackRange = 550.0,
+      movementSpeed = 325.0,
+      goldValue = 14
+    )
+    case Cannon() => MinionStats(
+      maxHp = 900.0,
+      attackDamage = 42.0,
+      attackSpeed = 1.0,
+      attackRange = 300.0,
+      movementSpeed = 325.0,
+      goldValue = 60
+    )
+  }
+
+// Get minion radius for rendering
+def getMinionRadius(minionType: MinionType): Double =
+  minionType match {
+    case Melee() => 12.0
+    case Caster() => 8.0
+    case Cannon() => 18.0
+  }
+
+// ============ MINION ============
+
+record Minion(
+  id: Int,
+  team: Team,
+  minionType: MinionType,
+  position: Vec2,
+  currentHp: Double,
+  stats: MinionStats,
+  targetId: Int,            // -1 means no target
+  lastAttackTime: Double,
+  isAlive: Bool
+)
+
+def createMinion(id: Int, team: Team, minionType: MinionType, spawnPos: Vec2): Minion = {
+  val stats = getMinionStats(minionType)
+  Minion(
+    id = id,
+    team = team,
+    minionType = minionType,
+    position = spawnPos,
+    currentHp = stats.maxHp,
+    stats = stats,
+    targetId = -1,
+    lastAttackTime = 0.0,
+    isAlive = true
+  )
+}
+
+def hasTarget(minion: Minion): Bool =
+  minion.targetId >= 0
+
+// ============ TURRET ============
+
+record TurretStats(
+  maxHp: Double,
+  attackDamage: Double,
+  attackSpeed: Double,
+  attackRange: Double
+)
+
+val TURRET_STATS: TurretStats = TurretStats(
+  maxHp = 5000.0,
+  attackDamage = 152.0,
+  attackSpeed = 0.83,
+  attackRange = 750.0
+)
+
+record Turret(
+  id: Int,
+  team: Team,
+  position: Vec2,
+  currentHp: Double,
+  targetId: Int,            // -1 means no target
+  lastAttackTime: Double,
+  isAlive: Bool
+)
+
+def createTurret(id: Int, team: Team, pos: Vec2): Turret =
+  Turret(
+    id = id,
+    team = team,
+    position = pos,
+    currentHp = TURRET_STATS.maxHp,
+    targetId = -1,
+    lastAttackTime = 0.0,
+    isAlive = true
+  )
+
+// ============ TOOL TYPES ============
+
+type Tool {
+  LastHitTool()
+  AoETool()
+  KillCastersTool()
+  FullClearTool()
+  TankTool()
+  NoTool()
+}
+
+def toolName(tool: Tool): String =
+  tool match {
+    case LastHitTool() => "Last Hit"
+    case AoETool() => "AoE Damage"
+    case KillCastersTool() => "Kill Casters"
+    case FullClearTool() => "Full Clear"
+    case TankTool() => "Tank"
+    case NoTool() => "None"
+  }
+
+// Tool parameters
+val AOE_RADIUS: Double = 80.0
+val AOE_DAMAGE: Double = 150.0
+val FULL_CLEAR_RANGE: Double = 200.0
+val LASTHIT_THRESHOLD: Double = 50.0
+
+// ============ SIMULATION STATE ============
+
+type SimulationSpeed {
+  Speed1x()
+  Speed2x()
+  Speed4x()
+}
+
+def speedMultiplier(speed: SimulationSpeed): Double =
+  speed match {
+    case Speed1x() => 1.0
+    case Speed2x() => 2.0
+    case Speed4x() => 4.0
+  }
+
+def speedName(speed: SimulationSpeed): String =
+  speed match {
+    case Speed1x() => "1x"
+    case Speed2x() => "2x"
+    case Speed4x() => "4x"
+  }
+
+// ============ WAVE STATE DETECTION ============
+
+type WaveState {
+  Neutral()
+  PushingBlue()
+  PushingRed()
+  SlowPushBlue()
+  SlowPushRed()
+  FrozenBlue()
+  FrozenRed()
+  Crashing()
+  Bouncing()
+}
+
+def waveStateName(state: WaveState): String =
+  state match {
+    case Neutral() => "Neutral"
+    case PushingBlue() => "Pushing Blue"
+    case PushingRed() => "Pushing Red"
+    case SlowPushBlue() => "Slow Push Blue"
+    case SlowPushRed() => "Slow Push Red"
+    case FrozenBlue() => "Frozen (Blue Side)"
+    case FrozenRed() => "Frozen (Red Side)"
+    case Crashing() => "Crashing"
+    case Bouncing() => "Bouncing"
+  }
+
+// ============ GAME STATE ============
+
+record GameState(
+  minions: List[Minion],
+  blueTurret: Turret,
+  redTurret: Turret,
+  gameTime: Double,
+  waveNumber: Int,
+  nextSpawnTime: Double,
+  isPaused: Bool,
+  speed: SimulationSpeed,
+  selectedTool: Tool,
+  nextEntityId: Int,
+  waveState: WaveState,
+  isPlayerTanking: Bool,
+  tankPosition: Vec2
+)
+
+// ============ CONSTANTS ============
+
+// Canvas dimensions
+val CANVAS_WIDTH: Int = 1200
+val CANVAS_HEIGHT: Int = 400
+
+// Lane layout
+val LANE_Y: Double = 200.0
+val LANE_START_X: Double = 100.0
+val LANE_END_X: Double = 1100.0
+
+// Spawn positions
+val BLUE_SPAWN_X: Double = 150.0
+val RED_SPAWN_X: Double = 1050.0
+
+// Wave spawning
+val SPAWN_INTERVAL: Double = 30.0
+val CANNON_WAVE_INTERVAL: Int = 3
+
+// Turret positions
+val BLUE_TURRET_X: Double = 100.0
+val RED_TURRET_X: Double = 1100.0
+
+// ============ INITIAL STATE ============
+
+def createInitialState(): GameState = {
+  val blueTurret = createTurret(0, Blue(), Vec2(BLUE_TURRET_X, LANE_Y))
+  val redTurret = createTurret(1, Red(), Vec2(RED_TURRET_X, LANE_Y))
+  
+  GameState(
+    minions = Nil(),
+    blueTurret = blueTurret,
+    redTurret = redTurret,
+    gameTime = 0.0,
+    waveNumber = 0,
+    nextSpawnTime = 0.0,
+    isPaused = false,
+    speed = Speed1x(),
+    selectedTool = NoTool(),
+    nextEntityId = 2,
+    waveState = Neutral(),
+    isPlayerTanking = false,
+    tankPosition = Vec2(0.0, 0.0)
+  )
+}
+
+// ============ HELPER FUNCTIONS ============
+
+// List helpers
+def listLength[A](list: List[A]): Int =
+  list match {
+    case Nil() => 0
+    case Cons(_, rest) => 1 + listLength(rest)
+  }
+
+def listFilter[A](list: List[A]) { pred: A => Bool }: List[A] =
+  list match {
+    case Nil() => Nil()
+    case Cons(x, rest) =>
+      if (pred(x)) Cons(x, listFilter(rest) { a => pred(a) })
+      else listFilter(rest) { a => pred(a) }
+  }
+
+def listMap[A, B](list: List[A]) { f: A => B }: List[B] =
+  list match {
+    case Nil() => Nil()
+    case Cons(x, rest) => Cons(f(x), listMap(rest) { a => f(a) })
+  }
+
+def listForEach[A](list: List[A]) { f: A => Unit }: Unit =
+  list match {
+    case Nil() => ()
+    case Cons(x, rest) =>
+      f(x)
+      listForEach(rest) { a => f(a) }
+  }
+
+def listFind[A](list: List[A]) { pred: A => Bool }: Option[A] =
+  list match {
+    case Nil() => None()
+    case Cons(x, rest) =>
+      if (pred(x)) Some(x)
+      else listFind(rest) { a => pred(a) }
+  }
+
+def listAppend[A](list1: List[A], list2: List[A]): List[A] =
+  list1 match {
+    case Nil() => list2
+    case Cons(x, rest) => Cons(x, listAppend(rest, list2))
+  }
+
+// Math helpers
+def maxDouble(a: Double, b: Double): Double =
+  if (a > b) a else b
+
+def minDouble(a: Double, b: Double): Double =
+  if (a < b) a else b
+
+def clamp(value: Double, minVal: Double, maxVal: Double): Double =
+  maxDouble(minVal, minDouble(value, maxVal))
+
+def absDouble(x: Double): Double =
+  if (x < 0.0) 0.0 - x else x
+
+// Floor function
+def floorDouble(x: Double): Double = {
+  val i = x.toInt
+  if (x < 0.0 && x != i.toDouble) (i - 1).toDouble
+  else i.toDouble
+}
+
+// Modulo for doubles
+def modDouble(x: Double, y: Double): Double =
+  x - (floorDouble(x / y) * y)

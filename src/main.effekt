@@ -1,5 +1,275 @@
-module main // must be named same as the file!
+module main
 
-import src/lib
+// ============================================================
+// Wave Management Simulator - Main Entry Point
+// Phase 2: Using Core Types with FFI
+// ============================================================
 
-def main(): Unit = println(helloWorld())
+import src/ffi/canvas
+import src/ffi/events
+import src/types
+
+// ============ RENDERING FUNCTIONS ============
+
+// Draw the background and lane
+def drawBackground(): Unit = {
+  // Dark background (Summoner's Rift style)
+  setFillColor(30, 35, 40, 1.0)
+  fillRect(0.0, 0.0, CANVAS_WIDTH.toDouble, CANVAS_HEIGHT.toDouble)
+  
+  // Lane (grass-like lighter area)
+  setFillColor(45, 55, 45, 1.0)
+  fillRect(LANE_START_X, LANE_Y - 60.0, LANE_END_X - LANE_START_X, 120.0)
+  
+  // Lane path (dirt/stone)
+  setFillColor(70, 65, 55, 1.0)
+  fillRect(LANE_START_X, LANE_Y - 35.0, LANE_END_X - LANE_START_X, 70.0)
+  
+  // Lane center line
+  setStrokeColor(255, 255, 255, 0.15)
+  setLineWidth(1.0)
+  drawLine(LANE_START_X, LANE_Y, LANE_END_X, LANE_Y)
+}
+
+// Draw a turret
+def drawTurret(turret: Turret): Unit = {
+  val size = 35.0
+  val x = turret.position.x
+  val y = turret.position.y
+  
+  // Turret base
+  turret.team match {
+    case Blue() => setFillColor(30, 100, 180, 1.0)
+    case Red() => setFillColor(180, 50, 50, 1.0)
+  }
+  fillRect(x - size / 2.0, y - size / 2.0, size, size)
+  
+  // Turret inner detail
+  turret.team match {
+    case Blue() => setFillColor(50, 150, 220, 1.0)
+    case Red() => setFillColor(220, 80, 80, 1.0)
+  }
+  fillRect(x - size / 4.0, y - size / 4.0, size / 2.0, size / 2.0)
+  
+  // Turret range indicator
+  if (turret.isAlive) {
+    setStrokeColor(255, 255, 255, 0.1)
+    setLineWidth(1.0)
+    strokeCircle(x, y, TURRET_STATS.attackRange * 0.2) // Scaled down for display
+  }
+  
+  // Health bar
+  if (turret.isAlive) {
+    drawHealthBar(x, y - size / 2.0 - 12.0, turret.currentHp, TURRET_STATS.maxHp, 40.0)
+  }
+}
+
+// Draw a minion
+def drawMinion(minion: Minion): Unit = {
+  if (not(minion.isAlive)) ()
+  else {
+    val x = minion.position.x
+    val y = minion.position.y
+    val radius = getMinionRadius(minion.minionType)
+    
+    // Minion body color based on team
+    minion.team match {
+      case Blue() => 
+        minion.minionType match {
+          case Melee() => setFillColor(50, 120, 200, 1.0)
+          case Caster() => setFillColor(80, 150, 230, 1.0)
+          case Cannon() => setFillColor(30, 90, 170, 1.0)
+        }
+      case Red() =>
+        minion.minionType match {
+          case Melee() => setFillColor(200, 60, 60, 1.0)
+          case Caster() => setFillColor(230, 90, 90, 1.0)
+          case Cannon() => setFillColor(170, 40, 40, 1.0)
+        }
+    }
+    
+    // Draw minion body
+    fillCircle(x, y, radius)
+    
+    // Draw outline for cannon minions
+    minion.minionType match {
+      case Cannon() =>
+        setStrokeColor(255, 215, 0, 0.8)
+        setLineWidth(2.0)
+        strokeCircle(x, y, radius)
+      case _ => ()
+    }
+    
+    // Health bar
+    val barWidth = radius * 2.0 + 4.0
+    drawHealthBar(x, y - radius - 8.0, minion.currentHp, minion.stats.maxHp, barWidth)
+  }
+}
+
+// Draw a health bar
+def drawHealthBar(x: Double, y: Double, current: Double, max: Double, width: Double): Unit = {
+  val height = 4.0
+  val ratio = current / max
+  
+  // Background
+  setFillColor(20, 20, 20, 0.8)
+  fillRect(x - width / 2.0 - 1.0, y - 1.0, width + 2.0, height + 2.0)
+  
+  // Health color based on percentage
+  if (ratio > 0.6) {
+    setFillColor(60, 180, 60, 1.0)  // Green
+  } else { if (ratio > 0.3) {
+    setFillColor(220, 180, 40, 1.0) // Yellow
+  } else {
+    setFillColor(200, 50, 50, 1.0)  // Red
+  }}
+  
+  fillRect(x - width / 2.0, y, width * ratio, height)
+}
+
+// Draw all minions
+def drawMinions(minions: List[Minion]): Unit =
+  listForEach(minions) { minion => drawMinion(minion) }
+
+// Draw UI overlay
+def drawUI(state: GameState): Unit = {
+  // Time display
+  setFont("bold 14px Arial")
+  setFillColor(200, 170, 110, 1.0)
+  setTextAlign("left")
+  
+  val totalSeconds = floorDouble(state.gameTime)
+  val seconds = modDouble(totalSeconds, 60.0)
+  val minutes = floorDouble(state.gameTime / 60.0)
+  val timeStr = show(minutes.toInt) ++ ":" ++ (if (seconds < 10.0) "0" else "") ++ show(seconds.toInt)
+  fillText("Time: " ++ timeStr, 15.0, 25.0)
+  
+  // Wave counter
+  setFillColor(180, 180, 180, 1.0)
+  fillText("Wave: " ++ show(state.waveNumber), 15.0, 45.0)
+  
+  // Next spawn timer
+  val nextSpawn = state.nextSpawnTime - state.gameTime
+  if (nextSpawn > 0.0) {
+    setFillColor(150, 150, 150, 1.0)
+    setFont("12px Arial")
+    fillText("Next wave: " ++ show(maxDouble(0.0, nextSpawn).toInt) ++ "s", 15.0, 65.0)
+  }
+  
+  // Minion count
+  val blueCount = listLength(listFilter(state.minions) { m => 
+    m.team match { case Blue() => m.isAlive case Red() => false }
+  })
+  val redCount = listLength(listFilter(state.minions) { m => 
+    m.team match { case Red() => m.isAlive case Blue() => false }
+  })
+  
+  setFont("12px Arial")
+  setFillColor(80, 140, 200, 1.0)
+  fillText("Blue: " ++ show(blueCount), 15.0, 85.0)
+  setFillColor(200, 80, 80, 1.0)
+  fillText("Red: " ++ show(redCount), 80.0, 85.0)
+  
+  // Speed indicator (top right)
+  setTextAlign("right")
+  setFillColor(200, 170, 110, 1.0)
+  setFont("bold 14px Arial")
+  fillText("Speed: " ++ speedName(state.speed), CANVAS_WIDTH.toDouble - 15.0, 25.0)
+  
+  // Selected tool
+  setFillColor(100, 200, 200, 1.0)
+  setFont("12px Arial")
+  fillText("Tool: " ++ toolName(state.selectedTool), CANVAS_WIDTH.toDouble - 15.0, 45.0)
+  
+  // Wave state
+  setFillColor(180, 180, 180, 1.0)
+  fillText(waveStateName(state.waveState), CANVAS_WIDTH.toDouble - 15.0, 65.0)
+  
+  // Pause indicator
+  if (state.isPaused) {
+    setFont("bold 24px Arial")
+    setFillColor(255, 200, 100, 0.9)
+    setTextAlign("center")
+    fillText("PAUSED", CANVAS_WIDTH.toDouble / 2.0, CANVAS_HEIGHT.toDouble / 2.0)
+    
+    setFont("14px Arial")
+    setFillColor(200, 200, 200, 0.8)
+    fillText("Press SPACE to resume", CANVAS_WIDTH.toDouble / 2.0, CANVAS_HEIGHT.toDouble / 2.0 + 25.0)
+  }
+}
+
+// Draw tool preview at mouse position
+def drawToolPreview(tool: Tool, mouseX: Double, mouseY: Double): Unit =
+  tool match {
+    case AoETool() =>
+      setStrokeColor(255, 200, 50, 0.6)
+      setLineWidth(2.0)
+      strokeCircle(mouseX, mouseY, AOE_RADIUS)
+      setFillColor(255, 200, 50, 0.1)
+      fillCircle(mouseX, mouseY, AOE_RADIUS)
+    case FullClearTool() =>
+      setStrokeColor(255, 50, 50, 0.6)
+      setLineWidth(2.0)
+      strokeCircle(mouseX, mouseY, FULL_CLEAR_RANGE)
+      setFillColor(255, 50, 50, 0.1)
+      fillCircle(mouseX, mouseY, FULL_CLEAR_RANGE)
+    case TankTool() =>
+      setFillColor(50, 255, 100, 0.3)
+      fillCircle(mouseX, mouseY, 25.0)
+      setStrokeColor(50, 255, 100, 0.8)
+      setLineWidth(2.0)
+      strokeCircle(mouseX, mouseY, 25.0)
+    case LastHitTool() =>
+      setStrokeColor(255, 255, 100, 0.6)
+      setLineWidth(1.0)
+      strokeCircle(mouseX, mouseY, 15.0)
+    case KillCastersTool() =>
+      setStrokeColor(150, 100, 255, 0.6)
+      setLineWidth(2.0)
+      strokeCircle(mouseX, mouseY, 150.0)
+    case NoTool() => ()
+  }
+
+// ============ RENDER COMPLETE SCENE ============
+
+def render(state: GameState, mouseX: Double, mouseY: Double): Unit = {
+  clearCanvas()
+  drawBackground()
+  drawTurret(state.blueTurret)
+  drawTurret(state.redTurret)
+  drawMinions(state.minions)
+  drawUI(state)
+  drawToolPreview(state.selectedTool, mouseX, mouseY)
+}
+
+// ============ MAIN ENTRY POINT ============
+
+def main(): Unit = {
+  val canvasId = "gameCanvas"
+  val canvasOk = initCanvas(canvasId, CANVAS_WIDTH, CANVAS_HEIGHT)
+  
+  if (canvasOk) {
+    println("Canvas initialized successfully!")
+    
+    val eventsOk = initEvents(canvasId)
+    if (eventsOk) {
+      println("Event listeners initialized successfully!")
+    } else {
+      println("Warning: Event listeners could not be initialized")
+    }
+    
+    // Create initial game state
+    val state = createInitialState()
+    
+    // Get mouse position
+    val mouseX = getMouseX()
+    val mouseY = getMouseY()
+    
+    // Render the scene
+    render(state, mouseX, mouseY)
+    
+    println("Scene rendered with types system!")
+  } else {
+    println("Failed to initialize canvas!")
+  }
+}
