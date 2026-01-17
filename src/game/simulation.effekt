@@ -1,0 +1,234 @@
+module src/game/simulation
+
+import src/types
+import src/effects
+import src/game/minion
+import src/game/combat
+import src/game/wave
+
+// ============================================================
+// Main Simulation Loop - Coordinates all game systems
+// ============================================================
+
+// Remove dead minions from the list
+def removeDeadMinions(minions: List[Minion]): List[Minion] = {
+  listFilter(minions) { m => m.isAlive }
+}
+
+// Single simulation step - updates all game systems for one frame
+def simulationStep(deltaTime: Double): Unit / {State, Time} = {
+  val state = do getState()
+  
+  if (state.isPaused) {
+    // Do nothing when paused
+    ()
+  } else {
+    val currentTime = do getCurrentTime()
+    val speedMult = do getSpeedMultiplier()
+    val adjustedDelta = deltaTime * speedMult
+    
+    // 1. Advance simulation time
+    do advanceTime(adjustedDelta)
+    val newGameTime = state.gameTime + adjustedDelta
+    
+    // 2. Check for wave spawns (scheduling)
+    val scheduleResult = checkAndScheduleWaves(
+      newGameTime, 
+      state.nextSpawnTime, 
+      state.waveNumber,
+      state.pendingSpawns
+    )
+    
+    scheduleResult match {
+      case (updatedPendingSpawns, newWaveNumber, newNextSpawnTime) =>
+        // Detect if a wave was spawned (new scheduled)
+        val waveSpawned = newWaveNumber > state.waveNumber
+        val newWaveState = if (waveSpawned) {
+          Neutral()  // Reset wave state when new wave spawns
+        } else {
+          state.waveState
+        }
+        
+        // 3. Process Pending Spawns
+        val (afterSpawnMinions, remainingPending, newNextEntityId) = processPendingSpawns(
+          updatedPendingSpawns,
+          state.minions,
+          state.nextEntityId,
+          newGameTime
+        )
+        
+        // 4. Update all minion positions and targets
+        val movedMinions = updateAllMinions(
+          afterSpawnMinions, 
+          state.blueTurret, 
+          state.redTurret,
+          adjustedDelta, 
+          currentTime,
+          state.isPlayerTanking,
+          state.tankPosition
+        )
+        
+        // 5. Process all combat
+        val combatResult = processCombat(
+          movedMinions, 
+          state.blueTurret, 
+          state.redTurret,
+          state.projectiles,
+          newNextEntityId,
+          currentTime, 
+          adjustedDelta
+        )
+        
+        // Use pattern matching for combat result
+        combatResult match {
+          case (afterCombatMinions, newBlueTurret, newRedTurret, newProjectiles, finalEntityId) =>
+            // 6. Remove dead minions
+            val aliveMinions = removeDeadMinions(afterCombatMinions)
+            
+            // 7. Update game state
+            do setState(GameState(
+              aliveMinions,
+              newBlueTurret,
+              newRedTurret,
+              newGameTime,
+              newWaveNumber,
+              newNextSpawnTime,
+              state.isPaused,
+              state.speed,
+              state.selectedTool,
+              finalEntityId,
+              newWaveState,
+              state.isPlayerTanking,
+              state.tankPosition,
+              state.projectiles,
+              remainingPending
+            ))
+        }
+    }
+  }
+}
+
+// Render the current game state
+def renderGame(): Unit / {State, Render, Input} = {
+  val state = do getState()
+  val mousePos = do getMousePosition()
+  
+  // Clear canvas
+  do clear()
+  
+  // Draw lane
+  do drawLane()
+  
+  // Draw turrets
+  do drawTurret(state.blueTurret)
+  do drawTurret(state.redTurret)
+  
+  // Draw all minions
+  drawMinions(state.minions)
+  
+  // Draw UI overlay
+  do drawUI(state)
+  
+  // Draw tool preview at mouse position
+  do drawToolPreview(state.selectedTool, mousePos)
+  
+  // Draw attack lines for minions that just attacked
+  // (visual feedback)
+  drawAttackLines(state.minions, state.blueTurret, state.redTurret)
+}
+
+// Helper: Draw all minions
+def drawMinions(minions: List[Minion]): Unit / Render = {
+  minions match {
+    case Nil() => ()
+    case Cons(m, rest) =>
+      if (m.isAlive) {
+        do drawMinion(m)
+      }
+      drawMinions(rest)
+  }
+}
+
+// Helper: Draw attack lines (visual feedback for attacks)
+def drawAttackLines(minions: List[Minion], blueTurret: Turret, redTurret: Turret): Unit / Render = {
+  // Draw turret attack lines
+  if (blueTurret.isAlive && blueTurret.targetId >= 0) {
+    val targetOpt = listFind(minions) { m => m.id == blueTurret.targetId }
+    targetOpt match {
+      case None() => ()
+      case Some(target) =>
+        if (target.isAlive) {
+          do drawAttackLine(blueTurret.position, target.position, Blue())
+        }
+    }
+  }
+  
+  if (redTurret.isAlive && redTurret.targetId >= 0) {
+    val targetOpt = listFind(minions) { m => m.id == redTurret.targetId }
+    targetOpt match {
+      case None() => ()
+      case Some(target) =>
+        if (target.isAlive) {
+          do drawAttackLine(redTurret.position, target.position, Red())
+        }
+    }
+  }
+}
+
+// Handle keyboard input for game controls
+def handleKeyboardInput(): Unit / {State, Input} = {
+  val state = do getState()
+  
+  // Space - toggle pause
+  if (do isKeyDown(" ")) {
+    setPaused(not(state.isPaused))
+  }
+  
+  // 1-5 - select tools
+  if (do isKeyDown("1")) {
+    setSelectedTool(NoTool())
+  }
+  if (do isKeyDown("2")) {
+    setSelectedTool(LastHitTool())
+  }
+  if (do isKeyDown("3")) {
+    setSelectedTool(AoETool())
+  }
+  if (do isKeyDown("4")) {
+    setSelectedTool(KillCastersTool())
+  }
+  if (do isKeyDown("5")) {
+    setSelectedTool(FullClearTool())
+  }
+  if (do isKeyDown("6")) {
+    setSelectedTool(TankTool())
+  }
+  
+  // +/- or >/< - speed controls
+  if (do isKeyDown("+") || do isKeyDown("=")) {
+    state.speed match {
+      case Speed1x() => setSpeed(Speed2x())
+      case Speed2x() => setSpeed(Speed4x())
+      case Speed4x() => ()
+    }
+  }
+  if (do isKeyDown("-") || do isKeyDown("_")) {
+    state.speed match {
+      case Speed1x() => ()
+      case Speed2x() => setSpeed(Speed1x())
+      case Speed4x() => setSpeed(Speed2x())
+    }
+  }
+}
+
+// Full game loop step - called each frame
+def gameLoopStep(deltaTime: Double): Unit / {State, Time, Render, Input} = {
+  // Handle input
+  handleKeyboardInput()
+  
+  // Update simulation
+  simulationStep(deltaTime)
+  
+  // Render
+  renderGame()
+}

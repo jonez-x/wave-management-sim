@@ -46,29 +46,10 @@
       padding: 20px;
     }
 
-    /* League-style header */
     .header {
       text-align: center;
       margin-bottom: 20px;
       position: relative;
-    }
-
-    .header::before,
-    .header::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      width: 120px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    }
-
-    .header::before {
-      left: -140px;
-    }
-
-    .header::after {
-      right: -140px;
     }
 
     h1 {
@@ -90,7 +71,6 @@
       text-transform: uppercase;
     }
 
-    /* Canvas container with ornate border */
     .canvas-container {
       position: relative;
       padding: 8px;
@@ -109,112 +89,48 @@
     #gameCanvas {
       display: block;
       cursor: crosshair;
-      clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px,
-          100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
     }
 
-    /* Corner decorations */
-    .corner-decor {
-      position: absolute;
-      width: 30px;
-      height: 30px;
-      border: 2px solid var(--gold);
-      pointer-events: none;
-    }
-
-    .corner-decor.top-left {
-      top: -5px;
-      left: -5px;
-      border-right: none;
-      border-bottom: none;
-    }
-
-    .corner-decor.top-right {
-      top: -5px;
-      right: -5px;
-      border-left: none;
-      border-bottom: none;
-    }
-
-    .corner-decor.bottom-left {
-      bottom: -5px;
-      left: -5px;
-      border-right: none;
-      border-top: none;
-    }
-
-    .corner-decor.bottom-right {
-      bottom: -5px;
-      right: -5px;
-      border-left: none;
-      border-top: none;
-    }
-
-    /* Control panels */
     .controls {
-      margin-top: 25px;
+      margin-top: 20px;
       display: flex;
       gap: 15px;
       flex-wrap: wrap;
       justify-content: center;
-      max-width: 1200px;
     }
 
     .control-group {
-      background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-medium) 100%);
+      background: var(--bg-light);
       border: 1px solid var(--gold-dark);
-      border-top-color: var(--gold);
-      padding: 15px 20px;
-      min-width: 180px;
-      position: relative;
-      clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px,
-          100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
-    }
-
-    .control-group::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 20%;
-      right: 20%;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--gold-light), transparent);
+      padding: 12px 18px;
+      min-width: 150px;
     }
 
     .control-group h3 {
       font-family: 'Cinzel', serif;
       font-size: 11px;
-      font-weight: 600;
       color: var(--gold-light);
       text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 12px;
-      text-align: center;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
     }
 
     .control-group p {
-      font-size: 13px;
-      color: var(--text-light);
-      line-height: 1.8;
+      font-size: 12px;
+      line-height: 1.6;
     }
 
     kbd {
       display: inline-block;
-      background: linear-gradient(180deg, var(--bg-dark) 0%, #0A0E13 100%);
+      background: var(--bg-dark);
       border: 1px solid var(--gold-dark);
-      border-bottom-width: 2px;
-      padding: 3px 8px;
+      padding: 2px 6px;
       border-radius: 3px;
-      font-size: 11px;
-      font-family: 'Roboto', monospace;
-      font-weight: 500;
+      font-size: 10px;
       color: var(--gold-light);
-      margin: 2px;
-      min-width: 24px;
-      text-align: center;
+      margin: 1px;
     }
 
-    /* Status bar */
     .status-bar {
       margin-top: 20px;
       display: flex;
@@ -263,7 +179,6 @@
       color: #E84057;
     }
 
-    /* Footer */
     footer {
       margin-top: 30px;
       padding-top: 20px;
@@ -277,61 +192,6 @@
     footer a {
       color: var(--gold-light);
       text-decoration: none;
-      transition: color 0.2s;
-    }
-
-    footer a:hover {
-      color: var(--gold);
-      text-shadow: 0 0 10px rgba(200, 155, 60, 0.5);
-    }
-
-    /* Tool highlight effects */
-    .tool-key {
-      color: var(--blue-light);
-    }
-
-    /* Divider */
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      width: 100%;
-      max-width: 800px;
-      margin: 15px 0;
-    }
-
-    .divider::before,
-    .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--gold-dark), transparent);
-    }
-
-    .divider-icon {
-      width: 20px;
-      height: 20px;
-      border: 1px solid var(--gold-dark);
-      transform: rotate(45deg);
-      background: var(--bg-medium);
-    }
-
-    .divider-icon::after {
-      content: '';
-      display: block;
-      width: 8px;
-      height: 8px;
-      margin: 5px;
-      background: var(--gold-dark);
-    }
-
-    /* Responsive */
-    @media (max-width: 1250px) {
-
-      .header::before,
-      .header::after {
-        display: none;
-      }
     }
   </style>
 </head>
@@ -343,17 +203,9 @@
   </header>
 
   <div class="canvas-container">
-    <div class="corner-decor top-left"></div>
-    <div class="corner-decor top-right"></div>
-    <div class="corner-decor bottom-left"></div>
-    <div class="corner-decor bottom-right"></div>
     <div class="canvas-inner">
       <canvas id="gameCanvas" width="1200" height="400"></canvas>
     </div>
-  </div>
-
-  <div class="divider">
-    <div class="divider-icon"></div>
   </div>
 
   <div class="controls">
@@ -365,25 +217,10 @@
       </p>
     </div>
     <div class="control-group">
-      <h3>Wave Tools</h3>
+      <h3>Tools</h3>
       <p>
-        <kbd class="tool-key">Q</kbd> Last Hit<br>
-        <kbd class="tool-key">W</kbd> AoE Damage<br>
-        <kbd class="tool-key">E</kbd> Kill Casters
-      </p>
-    </div>
-    <div class="control-group">
-      <h3>Advanced</h3>
-      <p>
-        <kbd class="tool-key">R</kbd> Full Clear<br>
-        <kbd class="tool-key">T</kbd> Tank Minions
-      </p>
-    </div>
-    <div class="control-group">
-      <h3>System</h3>
-      <p>
-        <kbd>Esc</kbd> Deselect<br>
-        <kbd>Shift</kbd>+<kbd>R</kbd> Reset
+        <kbd>Q</kbd> Last Hit<br>
+        <kbd>W</kbd> AoE Damage
       </p>
     </div>
   </div>
@@ -406,31 +243,25 @@
       status.className = isError ? 'error' : '';
       indicator.className = isError ? 'status-indicator error' : 'status-indicator';
     }
-
-    window.addEventListener('DOMContentLoaded', function () {
-      setStatus('Loading simulation...');
-    });
-
-    window.addEventListener('error', function (e) {
-      setStatus('Error: ' + e.message, true);
-    });
   </script>
 
-  <!-- Compiled Effekt code -->
+  <!-- Compiled Effekt code - ALL game logic is in here -->
   <script src="out/main.js"></script>
   <script>
+    // Minimal JS bridge - only initialization
+    // ALL game logic, rendering, combat, movement is in Effekt!
     try {
       if (typeof $main !== 'undefined' && typeof $main.main === 'function') {
         $main.main();
-        setStatus('Simulation active • Move mouse to interact');
-        console.log('Effekt main() called successfully');
+        setStatus('Simulation active • Press SPACE to pause');
+        console.log('Effekt game started - all logic in Effekt!');
       } else {
         setStatus('Error: Game module not found', true);
-        console.error('$main namespace:', typeof $main);
+        console.error('$main:', typeof $main);
       }
     } catch (e) {
       setStatus('Error: ' + e.message, true);
-      console.error('Error calling main:', e);
+      console.error('Error:', e);
     }
   </script>
 </body>

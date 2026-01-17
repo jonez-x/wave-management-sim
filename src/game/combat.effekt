@@ -1,0 +1,359 @@
+module src/game/combat
+
+import src/types
+import src/effects
+
+// ============================================================
+// Combat System - Damage Processing for Minions and Turrets
+// ============================================================
+
+// Apply damage to a minion
+def damageMinion(minion: Minion, damage: Double): Minion = {
+  val newHp = minion.currentHp - damage
+  if (newHp <= 0.0) {
+    Minion(
+      minion.id,
+      minion.team,
+      minion.minionType,
+      minion.position,
+      0.0,
+      minion.stats,
+      minion.targetId,
+      minion.lastAttackTime,
+      false
+    )
+  } else {
+    Minion(
+      minion.id,
+      minion.team,
+      minion.minionType,
+      minion.position,
+      newHp,
+      minion.stats,
+      minion.targetId,
+      minion.lastAttackTime,
+      minion.isAlive
+    )
+  }
+}
+
+// Apply damage to a turret
+def damageTurret(turret: Turret, damage: Double): Turret = {
+  val newHp = turret.currentHp - damage
+  if (newHp <= 0.0) {
+    Turret(
+      turret.id,
+      turret.team,
+      turret.position,
+      0.0,
+      turret.targetId,
+      turret.lastAttackTime,
+      false
+    )
+  } else {
+    Turret(
+      turret.id,
+      turret.team,
+      turret.position,
+      newHp,
+      turret.targetId,
+      turret.lastAttackTime,
+      turret.isAlive
+    )
+  }
+}
+
+// Check if minion just attacked (used to apply damage)
+def justAttacked(minion: Minion, currentTime: Double, deltaTime: Double): Bool = {
+  val timeSinceAttack = currentTime - minion.lastAttackTime
+  timeSinceAttack >= 0.0 && timeSinceAttack < deltaTime * 2.0
+}
+
+// Find minion by ID
+def findMinionById(minions: List[Minion], id: Int): Option[Minion] = {
+  listFind(minions) { m => m.id == id }
+}
+
+// Check if minion is in attack range of position
+def isInRange(minion: Minion, targetPos: Vec2): Bool = {
+  distance(minion.position, targetPos) <= minion.stats.attackRange
+}
+
+// Check if turret is in attack range of minion
+def turretInRange(turretPos: Vec2, minionPos: Vec2): Bool = {
+  distance(turretPos, minionPos) <= TURRET_STATS.attackRange
+}
+
+// Apply damage from a single attacker to target minion
+def applyMinionDamage(minions: List[Minion], attackerId: Int, 
+                       damage: Double, currentTime: Double, deltaTime: Double): List[Minion] = {
+  val attackerOpt = findMinionById(minions, attackerId)
+  attackerOpt match {
+    case None() => minions
+    case Some(attacker) =>
+      if (not(attacker.isAlive)) {
+        minions
+      } else {
+        if (justAttacked(attacker, currentTime, deltaTime)) {
+          val targetId = attacker.targetId
+          if (targetId >= 0) {
+            listMap(minions) { m =>
+              if (m.id == targetId && m.isAlive && isInRange(attacker, m.position)) {
+                damageMinion(m, damage)
+              } else {
+                m
+              }
+            }
+          } else {
+            minions
+          }
+        } else {
+          minions
+        }
+      }
+  }
+}
+
+// Update projectiles (move and hit)
+def updateProjectiles(projectiles: List[Projectile], minions: List[Minion], 
+                      deltaTime: Double): (List[Projectile], List[Minion]) = {
+                      
+  var nextProjectiles = Nil[Projectile]()
+  var currentMinions = minions
+  
+  listForEach(projectiles) { p =>
+    // Move projectile
+    val targetOpt = findMinionById(currentMinions, p.targetId)
+    
+    // Determine target position
+    val targetPos = targetOpt match {
+      case Some(m) => m.position // Homing
+      case None() => p.targetPos // Last known position (or could just fizzle)
+    }
+    
+    val dir = normalize(sub(targetPos, p.position))
+    val moveDist = p.speed * deltaTime
+    val distToTarget = distance(p.position, targetPos)
+    
+    if (distToTarget <= moveDist) {
+      // Hit!
+      targetOpt match {
+        case Some(m) =>
+          // Apply damage
+           currentMinions = listMap(currentMinions) { min =>
+             if (min.id == m.id) damageMinion(min, p.damage)
+             else min
+           }
+        case None() => () // Hitted nothing
+      }
+      // Projectile is destroyed (not added to nextProjectiles)
+    } else {
+      // Move projectile
+      val newPos = add(p.position, scale(dir, moveDist))
+      nextProjectiles = Cons(Projectile(p.id, newPos, p.targetId, p.damage, p.speed, p.isCaster, targetPos), nextProjectiles)
+    }
+  }
+  
+  (nextProjectiles, currentMinions)
+}
+
+// Process all minion-to-minion combat (Spawns projectiles or deals damage)
+def processAllMinionCombat(minions: List[Minion], projectiles: List[Projectile], nextId: Int,
+                           currentTime: Double, deltaTime: Double): (List[Minion], List[Projectile], Int) = {
+
+  var updatedMinions = minions
+  var newProjectiles = projectiles
+  var currentNextId = nextId
+  
+  // We iterate through original minions to determine attackers, but apply changes to updated lists
+  listForEach(minions) { attacker =>
+    if (attacker.isAlive && justAttacked(attacker, currentTime, deltaTime) && attacker.targetId >= 0) {
+       val targetOpt = findMinionById(minions, attacker.targetId) // Check original for validity
+       targetOpt match {
+         case Some(target) =>
+           if (target.isAlive && isInRange(attacker, target.position)) {
+              // Attack!
+              attacker.minionType match {
+                case Melee() =>
+                  // Melee - instant damage (existing logic)
+                  updatedMinions = listMap(updatedMinions) { m =>
+                    if (m.id == target.id) damageMinion(m, attacker.stats.attackDamage)
+                    else m
+                  }
+                case Caster() =>
+                  // Caster - spawn projectile
+                  val projId = currentNextId
+                  currentNextId = currentNextId + 1
+                  val proj = Projectile(
+                    projId, attacker.position, target.id, attacker.stats.attackDamage, 
+                    450.0, true, target.position
+                  ) 
+                  newProjectiles = Cons(proj, newProjectiles)
+                  
+                case Cannon() =>
+                  // Cannon - spawn projectile
+                  val projId = currentNextId
+                  currentNextId = currentNextId + 1
+                  val proj = Projectile(
+                    projId, attacker.position, target.id, attacker.stats.attackDamage,
+                    350.0, false, target.position
+                  )
+                  newProjectiles = Cons(proj, newProjectiles)
+              }
+           }
+         case None() => ()
+       }
+    }
+  }
+  
+  (updatedMinions, newProjectiles, currentNextId)
+}
+
+// Process minion attacks on turrets
+def processMinionTurretCombat(minions: List[Minion], blueTurret: Turret, redTurret: Turret,
+                               currentTime: Double, deltaTime: Double): (Turret, Turret) = {
+  def processTurretAttacks(attackers: List[Minion], blue: Turret, red: Turret): (Turret, Turret) = {
+    attackers match {
+      case Nil() => (blue, red)
+      case Cons(attacker, rest) =>
+        if (attacker.isAlive && justAttacked(attacker, currentTime, deltaTime) && attacker.targetId < 0) {
+          // Minion is attacking turret (targetId < 0 means no minion target)
+          attacker.team match {
+            case Blue() =>
+              // Blue minion attacks red turret
+              if (red.isAlive && isInRange(attacker, red.position)) {
+                val newRed = damageTurret(red, attacker.stats.attackDamage)
+                processTurretAttacks(rest, blue, newRed)
+              } else {
+                processTurretAttacks(rest, blue, red)
+              }
+            case Red() =>
+              // Red minion attacks blue turret
+              if (blue.isAlive && isInRange(attacker, blue.position)) {
+                val newBlue = damageTurret(blue, attacker.stats.attackDamage)
+                processTurretAttacks(rest, newBlue, red)
+              } else {
+                processTurretAttacks(rest, blue, red)
+              }
+          }
+        } else {
+          processTurretAttacks(rest, blue, red)
+        }
+    }
+  }
+  processTurretAttacks(minions, blueTurret, redTurret)
+}
+
+// Find first enemy minion in turret range
+def findTurretTarget(turret: Turret, minions: List[Minion]): Option[Minion] = {
+  listFind(minions) { m =>
+    if (not(m.isAlive)) {
+      false
+    } else {
+      val isEnemy = turret.team match {
+        case Blue() => m.team match {
+          case Blue() => false
+          case Red() => true
+        }
+        case Red() => m.team match {
+          case Blue() => true
+          case Red() => false
+        }
+      }
+      isEnemy && turretInRange(turret.position, m.position)
+    }
+  }
+}
+
+// Check if turret can attack
+def turretCanAttack(turret: Turret, currentTime: Double): Bool = {
+  val cooldown = 1.0 / TURRET_STATS.attackSpeed
+  currentTime - turret.lastAttackTime >= cooldown
+}
+
+// Process turret attacks on minions
+def processTurretCombat(minions: List[Minion], blueTurret: Turret, redTurret: Turret,
+                         currentTime: Double): (List[Minion], Turret, Turret) = {
+  var updatedMinions = minions
+  var updatedBlue = blueTurret
+  var updatedRed = redTurret
+  
+  // Blue turret attacks
+  if (blueTurret.isAlive && turretCanAttack(blueTurret, currentTime)) {
+    val targetOpt = findTurretTarget(blueTurret, updatedMinions)
+    targetOpt match {
+      case None() => ()
+      case Some(target) =>
+        updatedMinions = listMap(updatedMinions) { m =>
+          if (m.id == target.id) {
+            damageMinion(m, TURRET_STATS.attackDamage)
+          } else {
+            m
+          }
+        }
+        updatedBlue = Turret(
+          blueTurret.id,
+          blueTurret.team,
+          blueTurret.position,
+          blueTurret.currentHp,
+          target.id,
+          currentTime,
+          blueTurret.isAlive
+        )
+    }
+  }
+  
+  // Red turret attacks
+  if (redTurret.isAlive && turretCanAttack(redTurret, currentTime)) {
+    val targetOpt = findTurretTarget(redTurret, updatedMinions)
+    targetOpt match {
+      case None() => ()
+      case Some(target) =>
+        updatedMinions = listMap(updatedMinions) { m =>
+          if (m.id == target.id) {
+            damageMinion(m, TURRET_STATS.attackDamage)
+          } else {
+            m
+          }
+        }
+        updatedRed = Turret(
+          redTurret.id,
+          redTurret.team,
+          redTurret.position,
+          redTurret.currentHp,
+          target.id,
+          currentTime,
+          redTurret.isAlive
+        )
+    }
+  }
+  
+  (updatedMinions, updatedBlue, updatedRed)
+}
+
+// Main combat processing function
+def processCombat(minions: List[Minion], blueTurret: Turret, redTurret: Turret,
+                  projectiles: List[Projectile], nextId: Int,
+                  currentTime: Double, deltaTime: Double): (List[Minion], Turret, Turret, List[Projectile], Int) = {
+                  
+  // 1. Update existing projectiles
+  val (activeProjectiles, afterProjMinions) = updateProjectiles(projectiles, minions, deltaTime)
+  
+  // 2. Process minion attacks (spawn new projectiles or deal melee damage)
+  val (afterCombatMinions, allProjectiles, finalNextId) = processAllMinionCombat(
+    afterProjMinions, activeProjectiles, nextId, currentTime, deltaTime
+  )
+  
+  // 3. Process minion vs turret combat (Turrets don't move so projectiles are simpler, but for now let's keep instant for turrets or add projectiles later? 
+  // User asked for "minions damage". Let's keep turret combat instant for simplicity unless requested.
+  // Actually, minion -> turret should probably be projectile too if ranged.
+  // For this iteration, let's keep minion->turret as instant to minimize risk, focus on minion->minion.
+  val turretResult = processMinionTurretCombat(afterCombatMinions, blueTurret, redTurret, currentTime, deltaTime)
+  
+  // 4. Process turret vs minion combat
+  turretResult match {
+    case (newBlue, newRed) =>
+      val (finalMinions, finalBlue, finalRed) = processTurretCombat(afterCombatMinions, newBlue, newRed, currentTime)
+      (finalMinions, finalBlue, finalRed, allProjectiles, finalNextId)
+  }
+}

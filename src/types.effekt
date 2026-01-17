@@ -93,30 +93,38 @@ record MinionStats(
   goldValue: Int
 )
 
+// Scale factor: LoL Units -> Simulation Pixels
+// LoL Minion Radius ~ 48 units. Sim Radius ~ 12 pixels.
+// Ratio = 12 / 48 = 0.25.
+val STAT_SCALE: Double = 0.25
+
+// Damage Scale: Slower combat for wave stacking
+val DAMAGE_SCALE: Double = 0.6
+
 def getMinionStats(minionType: MinionType): MinionStats =
   minionType match {
     case Melee() => MinionStats(
       maxHp = 477.0,
-      attackDamage = 12.0,
+      attackDamage = 12.0 * DAMAGE_SCALE,
       attackSpeed = 1.25,
-      attackRange = 110.0,
-      movementSpeed = 325.0,
+      attackRange = 110.0 * STAT_SCALE,
+      movementSpeed = 325.0 * STAT_SCALE,
       goldValue = 21
     )
     case Caster() => MinionStats(
       maxHp = 296.0,
-      attackDamage = 23.0,
-      attackSpeed = 0.67,
-      attackRange = 550.0,
-      movementSpeed = 325.0,
+      attackDamage = 24.0 * DAMAGE_SCALE,
+      attackSpeed = 0.667,
+      attackRange = 550.0 * STAT_SCALE,
+      movementSpeed = 325.0 * STAT_SCALE,
       goldValue = 14
     )
     case Cannon() => MinionStats(
-      maxHp = 900.0,
-      attackDamage = 42.0,
+      maxHp = 912.0,
+      attackDamage = 41.0 * DAMAGE_SCALE,
       attackSpeed = 1.0,
-      attackRange = 300.0,
-      movementSpeed = 325.0,
+      attackRange = 300.0 * STAT_SCALE,
+      movementSpeed = 325.0 * STAT_SCALE,
       goldValue = 60
     )
   }
@@ -143,15 +151,50 @@ record Minion(
   isAlive: Bool
 )
 
-def createMinion(id: Int, team: Team, minionType: MinionType, spawnPos: Vec2): Minion = {
-  val stats = getMinionStats(minionType)
+// Apply scaling based on game time (90s cycles)
+def applyScaling(stats: MinionStats, minionType: MinionType, gameTime: Double): MinionStats = {
+  // Cycle starts after first wave spawn (approx 90s interval)
+  // Let's assume cycle 0 starts at 0:00 for simplicity or align with wave spawns
+  // Formula: Cycles = floor((t - StartTime) / 90)
+  val cycleDuration = 90.0
+  val cycles = floorDouble(maxDouble(0.0, gameTime) / cycleDuration)
+  
+  if (cycles <= 0.0) {
+    stats
+  } else {
+    // Scaling coefficients
+    val (hpGrowth, adGrowth) = minionType match {
+      case Melee() => (20.0, 0.5) // +20 HP, +0.5 AD
+      case Caster() => (15.0, 2.0) // +15 HP, +2.0 AD
+      case Cannon() => (50.0, 3.0) // +50 HP, +3.0 AD
+    }
+    
+    // Calculate bonuses
+    val bonusHp = hpGrowth * cycles
+    val bonusAd = adGrowth * cycles
+    
+    MinionStats(
+      maxHp = stats.maxHp + bonusHp,
+      attackDamage = stats.attackDamage + bonusAd,
+      attackSpeed = stats.attackSpeed,
+      attackRange = stats.attackRange,
+      movementSpeed = stats.movementSpeed, // Speed scaling handled separately if needed
+      goldValue = stats.goldValue
+    )
+  }
+}
+
+def createMinion(id: Int, team: Team, minionType: MinionType, spawnPos: Vec2, gameTime: Double): Minion = {
+  val baseStats = getMinionStats(minionType)
+  val scaledStats = applyScaling(baseStats, minionType, gameTime)
+  
   Minion(
     id = id,
     team = team,
     minionType = minionType,
     position = spawnPos,
-    currentHp = stats.maxHp,
-    stats = stats,
+    currentHp = scaledStats.maxHp,
+    stats = scaledStats,
     targetId = -1,
     lastAttackTime = 0.0,
     isAlive = true
@@ -172,9 +215,9 @@ record TurretStats(
 
 val TURRET_STATS: TurretStats = TurretStats(
   maxHp = 5000.0,
-  attackDamage = 152.0,
+  attackDamage = 152.0 * DAMAGE_SCALE,
   attackSpeed = 0.83,
-  attackRange = 750.0
+  attackRange = 750.0 * STAT_SCALE
 )
 
 record Turret(
@@ -224,6 +267,18 @@ val AOE_RADIUS: Double = 80.0
 val AOE_DAMAGE: Double = 150.0
 val FULL_CLEAR_RANGE: Double = 200.0
 val LASTHIT_THRESHOLD: Double = 50.0
+
+// ============ PROJECTILES ============
+
+record Projectile(
+  id: Int,
+  position: Vec2,
+  targetId: Int,
+  damage: Double,
+  speed: Double,
+  isCaster: Bool,    // true = Caster (small), false = Cannon (large)
+  targetPos: Vec2    // Snapshot of target position (for validation or non-homing)
+)
 
 // ============ SIMULATION STATE ============
 
@@ -276,6 +331,15 @@ def waveStateName(state: WaveState): String =
 
 // ============ GAME STATE ============
 
+record PendingSpawn(
+  team: Team,
+  minionType: MinionType,
+  spawnTime: Double,
+  laneOffset: Double // Use this to vary the path slightly if needed
+)
+
+// ============ GAME STATE ============
+
 record GameState(
   minions: List[Minion],
   blueTurret: Turret,
@@ -289,7 +353,9 @@ record GameState(
   nextEntityId: Int,
   waveState: WaveState,
   isPlayerTanking: Bool,
-  tankPosition: Vec2
+  tankPosition: Vec2,
+  projectiles: List[Projectile],
+  pendingSpawns: List[PendingSpawn]
 )
 
 // ============ CONSTANTS ============
@@ -327,14 +393,16 @@ def createInitialState(): GameState = {
     redTurret = redTurret,
     gameTime = 0.0,
     waveNumber = 0,
-    nextSpawnTime = 0.0,
+    nextSpawnTime = 0.0, // Start immediately as requested
     isPaused = false,
     speed = Speed1x(),
     selectedTool = NoTool(),
     nextEntityId = 2,
     waveState = Neutral(),
     isPlayerTanking = false,
-    tankPosition = Vec2(0.0, 0.0)
+    tankPosition = Vec2(0.0, 0.0),
+    projectiles = Nil(),
+    pendingSpawns = Nil()
   )
 }
 

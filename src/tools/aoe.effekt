@@ -1,0 +1,52 @@
+module src/tools/aoe
+
+import src/types
+import src/effects
+import src/game/combat
+
+/**
+ * Applies the AoE Damage tool effect.
+ * Deals damage to all minions within a radius.
+ *
+ * @param centerPos - Center of the AoE
+ * @param radius - Radius of effect
+ * @param damage - Amount of damage to deal
+ * @param lethal - If true, can kill minions. If false, leaves them at 1 HP.
+ * @effect State - Modifies minion HP
+ */
+def applyAoE(centerPos: Vec2, radius: Double, damage: Double, lethal: Bool): Unit / State = {
+  val state = do getState()
+  
+  val newMinions = listMap(state.minions) { m =>
+    if (m.isAlive && distance(centerPos, m.position) <= radius) {
+      val potentialHp = m.currentHp - damage
+      
+      if (lethal || potentialHp > 0.0) {
+        // Use combat module's damage function if available or manual update
+        // Using manual update here to respect lethal flag logic cleanly
+        if (potentialHp <= 0.0) {
+             Minion(
+                m.id, m.team, m.minionType, m.position, 
+                0.0, m.stats, m.targetId, m.lastAttackTime, false
+              )
+        } else {
+             Minion(
+                m.id, m.team, m.minionType, m.position, 
+                potentialHp, m.stats, m.targetId, m.lastAttackTime, m.isAlive
+              )
+        }
+      } else {
+        // Non-lethal: clamp at 1.0 minimum
+        val safeHp = maxDouble(1.0, potentialHp)
+        Minion(
+            m.id, m.team, m.minionType, m.position, 
+            safeHp, m.stats, m.targetId, m.lastAttackTime, m.isAlive
+        )
+      }
+    } else {
+      m
+    }
+  }
+  
+  setMinions(newMinions)
+}

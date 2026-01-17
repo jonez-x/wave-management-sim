@@ -225,21 +225,21 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
       setTextAlign("right")
       setFillColor(200, 170, 100, 1.0)
       
-      fillText("Speed: " ++ speedName(state.speed), toDouble(CANVAS_WIDTH) - 20.0, 30.0)
+      fillText("Speed: " ++ speedName(state.speed), intToDouble(CANVAS_WIDTH) - 20.0, 30.0)
       
       // Tool indicator
-      fillText("Tool: " ++ toolName(state.selectedTool), toDouble(CANVAS_WIDTH) - 20.0, 55.0)
+      fillText("Tool: " ++ toolName(state.selectedTool), intToDouble(CANVAS_WIDTH) - 20.0, 55.0)
       
       // Wave state indicator
       setFillColor(150, 150, 150, 1.0)
-      fillText(waveStateName(state.waveState), toDouble(CANVAS_WIDTH) - 20.0, 80.0)
+      fillText(waveStateName(state.waveState), intToDouble(CANVAS_WIDTH) - 20.0, 80.0)
       
       // Pause indicator
       if (state.isPaused) {
         setFont("bold 32px 'Cinzel', serif")
         setTextAlign("center")
         setFillColor(200, 170, 100, 0.9)
-        fillText("PAUSED", toDouble(CANVAS_WIDTH) / 2.0, toDouble(CANVAS_HEIGHT) / 2.0)
+        fillText("PAUSED", intToDouble(CANVAS_WIDTH) / 2.0, intToDouble(CANVAS_HEIGHT) / 2.0)
       }
       
       resume(())
@@ -282,6 +282,19 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
       drawLine(from.x, from.y, to.x, to.y)
       resume(())
     }
+    
+    def drawProjectile(p) = {
+      if (p.isCaster) {
+        // Caster projectile - small, bright
+        setFillColor(255, 255, 200, 1.0)
+        fillCircle(p.position.x, p.position.y, 4.0)
+      } else {
+        // Cannon projectile - larger, darker
+        setFillColor(50, 50, 50, 1.0)
+        fillCircle(p.position.x, p.position.y, 6.0)
+      }
+      resume(())
+    }
   }
 }
 
@@ -307,11 +320,11 @@ def countTeamMinions(minions: List[Minion], team: Team): Int = {
 }
 
 // Convert Double to Int
-extern def toInt(x: Double): Int =
+extern def doubleToInt(x: Double): Int =
   js "Math.floor(${x})"
 
 // Convert Int to Double
-extern def toDouble(x: Int): Double =
+extern def intToDouble(x: Int): Double =
   js "(${x})"
 
 // Modulo operation
@@ -329,6 +342,7 @@ def withMockRenderer[R] { prog: => R / Render }: R = {
     def drawUI(_) = resume(())
     def drawToolPreview(_, _) = resume(())
     def drawAttackLine(_, _, _) = resume(())
+    def drawProjectile(_) = resume(())
   }
 }
 
@@ -364,7 +378,7 @@ def withMockRandom[R](seed: Int) { prog: => R / Random }: R = {
     def randomDouble() = {
       // Simple LCG for deterministic testing
       current = modulo(current * 1103515245 + 12345, 2147483648)
-      resume(toDouble(current) / 2147483648.0)
+      resume(intToDouble(current) / 2147483648.0)
     }
     def randomInt(max) = {
       current = modulo(current * 1103515245 + 12345, 2147483648)

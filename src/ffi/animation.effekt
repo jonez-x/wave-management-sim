@@ -1,68 +1,80 @@
 module src/ffi/animation
 
 // ============================================================
-// Animation Frame FFI for Game Loop
+// Animation FFI - Pure timing utilities
+// No type dependencies - just JS primitives
 // ============================================================
 
 extern js """
-  let $animationId = null;
-  let $lastFrameTime = 0;
-  let $isRunning = false;
-  let $frameCallback = null;
-  
-  function $startAnimationLoop(callback) {
-    if ($isRunning) return;
-    $isRunning = true;
-    $frameCallback = callback;
-    $lastFrameTime = performance.now();
-    $animationId = requestAnimationFrame($animationLoop);
+  let $running = false;
+  let $lastTime = 0;
+  let $frameId = null;
+  let $deltaTime = 0;
+  let $frameReady = false;
+
+  function $startGameLoop() {
+    if ($running) return;
+    $running = true;
+    $lastTime = performance.now();
+    $frameReady = false;
+    scheduleNextFrame();
   }
   
-  function $animationLoop(timestamp) {
-    if (!$isRunning) return;
-    
-    const deltaTime = (timestamp - $lastFrameTime) / 1000.0;
-    $lastFrameTime = timestamp;
-    
-    const cappedDelta = Math.min(deltaTime, 0.1);
-    
-    if ($frameCallback) {
-      $frameCallback(cappedDelta);
-    }
-    
-    $animationId = requestAnimationFrame($animationLoop);
+  function scheduleNextFrame() {
+    $frameId = requestAnimationFrame(function(now) {
+      if (!$running) return;
+      
+      $deltaTime = Math.min((now - $lastTime) / 1000.0, 0.1);
+      $lastTime = now;
+      $frameReady = true;
+    });
   }
   
-  function $stopAnimationLoop() {
-    $isRunning = false;
-    if ($animationId !== null) {
-      cancelAnimationFrame($animationId);
-      $animationId = null;
-    }
-    $frameCallback = null;
+  function $stopGameLoop() {
+    $running = false;
+    if ($frameId) cancelAnimationFrame($frameId);
   }
   
-  function $isAnimationRunning() {
-    return $isRunning;
+  function $isGameLoopRunning() { 
+    return $running; 
   }
   
-  function $getCurrentTime() {
+  function $isFrameReady() {
+    return $frameReady;
+  }
+  
+  function $consumeFrame() {
+    var dt = $deltaTime;
+    $frameReady = false;
+    if ($running) scheduleNextFrame();
+    return dt;
+  }
+  
+  function $getTimeNow() {
     return performance.now() / 1000.0;
   }
 """
 
-// Start the animation loop with a callback that receives delta time in seconds
-extern def startAnimationLoop(callback: Double => Unit at {}) at {}: Unit =
-  js "$startAnimationLoop((dt) => ${callback}(dt))"
+// Start the game loop
+extern def startGameLoop(): Unit =
+  js "$startGameLoop()"
 
-// Stop the animation loop
-extern def stopAnimationLoop() at {}: Unit =
-  js "$stopAnimationLoop()"
+// Stop the game loop  
+extern def stopGameLoop(): Unit =
+  js "$stopGameLoop()"
 
-// Check if animation loop is currently running
-extern def isAnimationRunning() at {}: Bool =
-  js "$isAnimationRunning()"
+// Check if loop is running
+extern def isGameLoopRunning(): Bool =
+  js "$isGameLoopRunning()"
 
-// Get current time in seconds (for timing purposes)
-extern def getCurrentTime() at {}: Double =
-  js "$getCurrentTime()"
+// Check if a frame is ready
+extern def isFrameReady(): Bool =
+  js "$isFrameReady()"
+
+// Consume the frame and get delta time
+extern def consumeFrame(): Double =
+  js "$consumeFrame()"
+
+// Get current time in seconds
+extern def getTimeNow(): Double =
+  js "$getTimeNow()"

@@ -1,0 +1,58 @@
+module src/tools/dispatcher
+
+import src/types
+import src/effects
+import src/tools/lasthit
+import src/tools/aoe
+import src/tools/clear
+import src/tools/tank
+
+/**
+ * Dispatches a click event to the currently selected tool.
+ *
+ * @param tool - The selected tool
+ * @param clickPos - Critical position of the click
+ * @effect State - May modify game state
+ */
+def handleToolClick(tool: Tool, clickPos: Vec2): Unit / State = {
+  tool match {
+    case LastHitTool() => applyLastHit(clickPos)
+    
+    case AoETool() => 
+      // Use constants for radius and damage defined in types/plan
+      applyAoE(clickPos, AOE_RADIUS, AOE_DAMAGE, false)
+      
+    case KillCastersTool() =>
+      // Determine team based on side of map (center is x=600)
+      if (clickPos.x < 600.0) {
+        // Left side -> Kill Blue Casters
+        killCasters(clickPos, Blue())
+      } else {
+        // Right side -> Kill Red Casters
+        killCasters(clickPos, Red())
+      }
+      
+    case FullClearTool() =>
+      // Determine team based on side of map
+      if (clickPos.x < 600.0) {
+        fullClear(clickPos, FULL_CLEAR_RANGE, Blue())
+      } else {
+        fullClear(clickPos, FULL_CLEAR_RANGE, Red())
+      }
+      
+    case TankTool() =>
+      // Toggle tanking or move tank position
+      val state = do getState()
+      if (state.isPlayerTanking) {
+        // If clicking far input, maybe disable? Or just move?
+        // Let's say if clicking same spot or special key, disable.
+        // For simplicity: Always update position. 
+        // User can disable by switching tool (handled in input loop usually)
+        activateTank(clickPos)
+      } else {
+        activateTank(clickPos)
+      }
+      
+    case NoTool() => ()
+  }
+}

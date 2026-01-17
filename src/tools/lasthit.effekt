@@ -1,0 +1,43 @@
+module src/tools/lasthit
+
+import src/types
+import src/effects
+
+/**
+ * Applies the Last Hit tool effect.
+ * Kills a minion if it is within range of the click and has low HP.
+ *
+ * @param clickPos - The position of the user's click
+ * @effect State - Reads and modifies minion state
+ */
+def applyLastHit(clickPos: Vec2): Unit / State = {
+  // Threshold from plan/types
+  val threshold = LASTHIT_THRESHOLD
+  val clickRadius = 30.0
+  
+  val state = do getState()
+  
+  // Find a valid target (alive, low HP, close to click)
+  val target = listFind(state.minions) { m =>
+    m.isAlive &&
+    m.currentHp <= threshold &&
+    distance(clickPos, m.position) <= clickRadius
+  }
+  
+  target match {
+    case Some(minion) =>
+      // Kill the minion
+      val newMinions = listMap(state.minions) { m =>
+        if (m.id == minion.id) {
+          Minion(
+            m.id, m.team, m.minionType, m.position, 
+            0.0, m.stats, m.targetId, m.lastAttackTime, false
+          )
+        } else {
+          m
+        }
+      }
+      setMinions(newMinions)
+    case None() => ()
+  }
+}

@@ -1,0 +1,71 @@
+module src/tools/clear
+
+import src/types
+import src/effects
+
+/**
+ * Kill all caster minions of a specific team near a position.
+ * Used for setting up slow pushes.
+ *
+ * @param clickPos - Center of the click
+ * @param targetTeam - The team whose casters should be killed
+ * @effect State - Modifies minion state
+ */
+def killCasters(clickPos: Vec2, targetTeam: Team): Unit / State = {
+  val state = do getState()
+  val range = 200.0 // Reasonable range to catch a wave
+  
+  val newMinions = listMap(state.minions) { m =>
+    val isTarget = m.isAlive && 
+                   (m.team match {
+                     case Blue() => targetTeam match { case Blue() => true case Red() => false }
+                     case Red() => targetTeam match { case Blue() => false case Red() => true }
+                   }) && 
+                   (m.minionType match { case Caster() => true case _ => false }) &&
+                   distance(clickPos, m.position) <= range
+                   
+    if (isTarget) {
+      Minion(
+        m.id, m.team, m.minionType, m.position, 
+        0.0, m.stats, m.targetId, m.lastAttackTime, false
+      )
+    } else {
+      m
+    }
+  }
+  
+  setMinions(newMinions)
+}
+
+/**
+ * Kill all minions of a specific team in a large radius.
+ * Used for hard pushing / resetting.
+ *
+ * @param centerPos - Center of the clear area
+ * @param range - Radius of the clear
+ * @param targetTeam - The team to clear
+ * @effect State - Modifies minion state
+ */
+def fullClear(centerPos: Vec2, range: Double, targetTeam: Team): Unit / State = {
+  val state = do getState()
+  
+  val newMinions = listMap(state.minions) { m =>
+    val isTarget = m.isAlive && 
+                   (m.team match {
+                     case Blue() => targetTeam match { case Blue() => true case Red() => false }
+                     case Red() => targetTeam match { case Blue() => false case Red() => true }
+                   }) && 
+                   distance(centerPos, m.position) <= range
+                   
+    if (isTarget) {
+      Minion(
+        m.id, m.team, m.minionType, m.position, 
+        0.0, m.stats, m.targetId, m.lastAttackTime, false
+      )
+    } else {
+      m
+    }
+  }
+  
+  setMinions(newMinions)
+}

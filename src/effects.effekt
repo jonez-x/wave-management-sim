@@ -41,6 +41,7 @@ def getNextSpawnTime(): Double / State =
 def getWaveState(): WaveState / State =
   do getState().waveState
 
+
 // Modifier helpers - using getState/setState
 def setMinions(newMinions: List[Minion]): Unit / State = {
   val state = do getState()
@@ -57,7 +58,9 @@ def setMinions(newMinions: List[Minion]): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -76,7 +79,9 @@ def setGameTime(newTime: Double): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -95,7 +100,9 @@ def setPaused(paused: Bool): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -114,7 +121,9 @@ def setSpeed(newSpeed: SimulationSpeed): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -133,7 +142,9 @@ def setSelectedTool(tool: Tool): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -152,7 +163,9 @@ def incrementWaveNumber(): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -171,7 +184,9 @@ def setNextSpawnTime(time: Double): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -190,7 +205,9 @@ def setWaveState(newWaveState: WaveState): Unit / State = {
     state.nextEntityId,
     newWaveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -209,7 +226,9 @@ def getNextEntityId(): Int / State = {
     state.nextEntityId + 1,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
   state.nextEntityId
 }
@@ -229,7 +248,9 @@ def addMinion(minion: Minion): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -248,7 +269,9 @@ def updateBlueTurret(turret: Turret): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -267,7 +290,9 @@ def updateRedTurret(turret: Turret): Unit / State = {
     state.nextEntityId,
     state.waveState,
     state.isPlayerTanking,
-    state.tankPosition
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
 
@@ -286,9 +311,54 @@ def setTankPosition(pos: Vec2, isTanking: Bool): Unit / State = {
     state.nextEntityId,
     state.waveState,
     isTanking,
-    pos
+    pos,
+    state.projectiles,
+    state.pendingSpawns
   ))
 }
+
+def setProjectiles(newProjectiles: List[Projectile]): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition,
+    newProjectiles,
+    state.pendingSpawns
+  ))
+}
+
+def setPendingSpawns(newPending: List[PendingSpawn]): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition,
+    state.projectiles,
+    newPending
+  ))
+}
+
 
 // ============ TIME INTERFACE ============
 // Manages simulation time and scheduling
@@ -320,6 +390,7 @@ interface Render {
   def drawUI(state: GameState): Unit
   def drawToolPreview(tool: Tool, mousePos: Vec2): Unit
   def drawAttackLine(from: Vec2, to: Vec2, team: Team): Unit
+  def drawProjectile(p: Projectile): Unit
 }
 
 // ============ RANDOM INTERFACE ============

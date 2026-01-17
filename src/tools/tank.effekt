@@ -1,0 +1,27 @@
+module src/tools/tank
+
+import src/types
+import src/effects
+
+/**
+ * Activates the tank tool at the specified position.
+ * Minions will aggro onto this position if enabled.
+ *
+ * @param pos - The position to tank at
+ * @effect State - Updates tanking state
+ */
+def activateTank(pos: Vec2): Unit / State = {
+  // Uses helper from effects.effekt
+  setTankPosition(pos, true)
+}
+
+/**
+ * Deactivates the tank tool.
+ *
+ * @effect State - Updates tanking state
+ */
+def deactivateTank(): Unit / State = {
+  // Uses helper from effects.effekt
+  // Position doesn't matter when disabled, keeping 0,0
+  setTankPosition(Vec2(0.0, 0.0), false)
+}
