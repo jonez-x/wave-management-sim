@@ -1,10 +1,5 @@
 module src/ffi/canvas
 
-// ============================================================
-// Canvas FFI Bindings for HTML5 Canvas API
-// ============================================================
-
-// External JavaScript code block
 extern js """
   let $canvas = null;
   let $ctx = null;
@@ -94,59 +89,45 @@ extern js """
   }
 """
 
-// Initialize the canvas with given ID and dimensions
 extern def initCanvas(id: String, width: Int, height: Int): Bool =
   js "$initCanvas(${id}, ${width}, ${height})"
 
-// Clear the entire canvas
 extern def clearCanvas(): Unit =
   js "$clearCanvas()"
 
-// Set fill color (RGBA)
 extern def setFillColor(r: Int, g: Int, b: Int, a: Double): Unit =
   js "$setFillColor(${r}, ${g}, ${b}, ${a})"
 
-// Set stroke color (RGBA)
 extern def setStrokeColor(r: Int, g: Int, b: Int, a: Double): Unit =
   js "$setStrokeColor(${r}, ${g}, ${b}, ${a})"
 
-// Draw a filled rectangle
 extern def fillRect(x: Double, y: Double, w: Double, h: Double): Unit =
   js "$fillRect(${x}, ${y}, ${w}, ${h})"
 
-// Draw a stroked rectangle
 extern def strokeRect(x: Double, y: Double, w: Double, h: Double): Unit =
   js "$strokeRect(${x}, ${y}, ${w}, ${h})"
 
-// Draw a filled circle
 extern def fillCircle(x: Double, y: Double, radius: Double): Unit =
   js "$fillCircle(${x}, ${y}, ${radius})"
 
-// Draw a stroked circle
 extern def strokeCircle(x: Double, y: Double, radius: Double): Unit =
   js "$strokeCircle(${x}, ${y}, ${radius})"
 
-// Draw a line between two points
 extern def drawLine(x1: Double, y1: Double, x2: Double, y2: Double): Unit =
   js "$drawLine(${x1}, ${y1}, ${x2}, ${y2})"
 
-// Set the line width for strokes
 extern def setLineWidth(width: Double): Unit =
   js "$setLineWidth(${width})"
 
-// Draw text at position
 extern def fillText(text: String, x: Double, y: Double): Unit =
   js "$fillText(${text}, ${x}, ${y})"
 
-// Set the font for text drawing
 extern def setFont(font: String): Unit =
   js "$setFont(${font})"
 
-// Set text alignment ("left", "center", "right")
 extern def setTextAlign(align: String): Unit =
   js "$setTextAlign(${align})"
 
-// Get canvas dimensions
 extern def getCanvasWidth(): Int =
   js "$getCanvasWidth()"
 

@@ -134,15 +134,12 @@ def drawBackground(): Unit = {
   setFillColor(30, 35, 40, 1.0)
   fillRect(0.0, 0.0, CANVAS_WIDTH.toDouble, CANVAS_HEIGHT.toDouble)
   
-  // Lane grass
   setFillColor(45, 55, 45, 1.0)
   fillRect(LANE_START_X, LANE_Y - 60.0, LANE_END_X - LANE_START_X, 120.0)
   
-  // Lane path
   setFillColor(70, 65, 55, 1.0)
   fillRect(LANE_START_X, LANE_Y - 35.0, LANE_END_X - LANE_START_X, 70.0)
   
-  // Center line
   setStrokeColor(255, 255, 255, 0.15)
   setLineWidth(1.0)
   drawLine(LANE_START_X, LANE_Y, LANE_END_X, LANE_Y)
@@ -156,21 +153,18 @@ def drawTurretEntity(turret: Turret): Unit = {
     val x = turret.position.x
     val y = turret.position.y
     
-    // Base color
     turret.team match {
       case Blue() => setFillColor(30, 100, 180, 1.0)
       case Red() => setFillColor(180, 50, 50, 1.0)
     }
     fillRect(x - size / 2.0, y - size / 2.0, size, size)
     
-    // Inner detail
     turret.team match {
       case Blue() => setFillColor(50, 150, 220, 1.0)
       case Red() => setFillColor(220, 80, 80, 1.0)
     }
     fillRect(x - size / 4.0, y - size / 4.0, size / 2.0, size / 2.0)
     
-    // Health bar
     val barWidth = 40.0
     val barHeight = 4.0
     val barY = y - size / 2.0 - 10.0
@@ -195,7 +189,6 @@ def drawMinionEntity(minion: Minion): Unit = {
     val y = minion.position.y
     val radius = getMinionRadius(minion.minionType)
     
-    // Color based on team and type
     minion.team match {
       case Blue() => 
         minion.minionType match {
@@ -213,7 +206,6 @@ def drawMinionEntity(minion: Minion): Unit = {
     
     fillCircle(x, y, radius)
     
-    // Cannon golden outline
     minion.minionType match {
       case Cannon() =>
         setStrokeColor(255, 215, 0, 0.8)
@@ -222,7 +214,6 @@ def drawMinionEntity(minion: Minion): Unit = {
       case _ => ()
     }
     
-    // Health bar
     val barWidth = radius * 2.0 + 4.0
     val barHeight = 3.0
     val barY = y - radius - 6.0
@@ -246,24 +237,17 @@ def drawMinionEntity(minion: Minion): Unit = {
 
 def drawProjectileEntity(p: Projectile): Unit = {
   if (p.isCaster) {
-    // Caster projectile - small, bright
     setFillColor(255, 255, 200, 1.0)
     fillCircle(p.position.x, p.position.y, 4.0)
   } else {
-    // Cannon projectile - larger, darker
     setFillColor(50, 50, 50, 1.0)
     fillCircle(p.position.x, p.position.y, 6.0)
   }
 }
 
 def drawAttackLineEntity(from: Vec2, to: Vec2, team: Team): Unit = {
-  // Draw a "sword" effect at the target position
-  // Sword is a line with a crossguard
   val centerX = to.x
   val centerY = to.y
-  
-  // Random offset to look dynamic or just centered on target
-  // Simple cross shape for now indicating a "hit"
   
   team match {
     case Blue() => setStrokeColor(200, 220, 255, 0.9)
@@ -271,17 +255,11 @@ def drawAttackLineEntity(from: Vec2, to: Vec2, team: Team): Unit = {
   }
   setLineWidth(2.0)
   
-  // Slash line
   drawLine(centerX - 10.0, centerY - 10.0, centerX + 10.0, centerY + 10.0)
   
-  // Cross slash for "X" impact or sword hilt?
-  // User asked for a "sword". Let's try to draw a sword icon shape.
-  // Blade
   drawLine(centerX - 8.0, centerY - 8.0, centerX + 8.0, centerY + 8.0)
-  // Crossguard
   drawLine(centerX - 4.0, centerY + 4.0, centerX + 4.0, centerY - 4.0)
   
-  // Add a small flash/circle
   team match {
     case Blue() => setFillColor(100, 180, 255, 0.5)
     case Red() => setFillColor(255, 100, 100, 0.5)
@@ -299,10 +277,8 @@ def drawAllMinions(minions: List[Minion], allMinions: List[Minion], currentTime:
     case Cons(m, rest) =>
       drawMinionEntity(m)
       
-      // Visual feedback for melee attacks
       m.minionType match {
         case Melee() => 
-          // Show attack slash for 0.15s after attack
           val timeSinceAttack = currentTime - m.lastAttackTime
           if (m.targetId >= 0 && timeSinceAttack < 0.15 && timeSinceAttack >= 0.0) {
              val targetOpt = findMinion(allMinions, m.targetId)
@@ -381,15 +357,12 @@ def renderGame(state: GameState): Unit = {
   drawTurretEntity(state.redTurret)
   drawAllMinions(state.minions, state.minions, state.gameTime)
   
-  // Draw projectiles
   listForEach(state.projectiles) { p =>
     drawProjectileEntity(p)
   }
   
   drawUI(state)
 }
-
-// ============ GAME LOGIC (all in Effekt) ============
 
 def removeDeadMinions(minions: List[Minion]): List[Minion] = {
   listFilter(minions) { m => m.isAlive }
@@ -417,7 +390,7 @@ def updateToolAndTank(s: GameState, t: Tool, tanking: Bool): GameState = {
 }
 
 def handleKeyboardTools(state: GameState): GameState = {
-  // Check number keys for tool selection
+
   if (wasKeyJustPressed("1")) updateSpeed(state, Speed1x())
   else if (wasKeyJustPressed("2")) updateSpeed(state, Speed2x())
   else if (wasKeyJustPressed("3")) updateSpeed(state, Speed4x())
@@ -451,8 +424,6 @@ def updateGameLogic(state: GameState, dt: Double): GameState = {
     val adjustedDt = dt * speedMult
     val newTime = state.gameTime + adjustedDt
     
-    // 1. Check wave spawning
-    // 1. Check wave spawning (scheduling)
     val scheduleResult = checkAndScheduleWaves(
       newTime, state.nextSpawnTime, state.waveNumber, state.pendingSpawns
     )
@@ -460,18 +431,15 @@ def updateGameLogic(state: GameState, dt: Double): GameState = {
     scheduleResult match {
       case (updatedPending, newWave, newNextSpawn) =>
         
-        // 2. Process Pending Spawns
         val (minionsAfterSpawn, remainingPending, newNextId) = processPendingSpawns(
           updatedPending, state.minions, state.nextEntityId, newTime
         )
 
-        // 3. Update minion positions and targeting
         val movedMinions = updateAllMinions(
           minionsAfterSpawn, state.blueTurret, state.redTurret,
           adjustedDt, newTime, state.isPlayerTanking, state.tankPosition
         )
         
-        // 4. Process combat (Projectiles included)
         val combatResult = processCombat(
           movedMinions, state.blueTurret, state.redTurret,
           state.projectiles, newNextId, newTime, adjustedDt
@@ -479,10 +447,8 @@ def updateGameLogic(state: GameState, dt: Double): GameState = {
         
         combatResult match {
           case (afterCombat, newBlue, newRed, newProjectiles, finalNextId) =>
-            // 5. Remove dead minions
             val alive = removeDeadMinions(afterCombat)
             
-            // Detect wave change for state (simplified)
             val newWaveState = if (newWave > state.waveNumber) Neutral() else state.waveState
             
             GameState(
@@ -496,83 +462,31 @@ def updateGameLogic(state: GameState, dt: Double): GameState = {
   }
 }
 
-// ============ FRAME PROCESSING ============
-
-
-// Process a single frame - called by JS game loop
 def processFrameImpl(): Unit = {
   val dt = getDeltaTime()
   val state = loadState()
   
-  // 1. Handle tool input (clicks)
-  // We need to check if clicked and dispatch
-  // Browser input handling is done via handleInput usually, but we have ffi/events
-  
-  // Use withStatus/withInput handlers if we were using them?
-  // Current main.effekt calls handleInput(state) which only checks Space.
-  // We need to use FFI events directly here or through a handler.
-  
-  // Let's modify handleInput to also return clicks or handle them.
-  // But handleInput returns GameState.
-  
-  // Checking clicks via FFI directly since handlers are not fully wired in this simple bridge
   if (wasMouseClicked()) {
     val clickPos = Vec2(getMouseX(), getMouseY())
-    // Dispatch tool click updates state
-    // We need to run this with 'State' effect if dispatcher uses it.
-    // Dispatcher uses 'State'.
-    // Here we are in direct style without effect handler wrapper?
-    // processFrameImpl returns Unit. 
-    // We need to wrap it or manually update state.
-    
-    // Create a temporary handler context or manually apply changes?
-    // Dispatcher expects: def handleToolClick(tool: Tool, clickPos: Vec2): Unit / State
-    
-    // We can use `withState(state) { ... }` from handlers.
-    // But then we need to extract the new state.
-    // withState returns Unit (R).
-    // handlers.withState implementation:
-    // def withState[R](initial: GameState) { prog: => R / State }: R
-    // It captures state in a var but doesn't return it? 
-    // Wait, handlers.effekt line 10:
-    // def withState... var current = initial ...
-    // It does not return the final state.
-    // I need a handler that returns the state, like `withMockState` but for prod.
-    // Or I modify `withState` or use `withMockState` behavior locally.
-    
-    // Better: Update `handleInput` to be `processInput(state): GameState` and handle tools there.
-    // But `handleInput` is pure in `main.effekt` now?
-    
-    // Let's use `withMockState` pattern to get the result state.
-    // (result, newState) = withMockState(state) { handleToolClick(...) }
     
     val (_, stateAfterClick) = withMockState(state) {
       handleToolClick(state.selectedTool, clickPos)
     }
-    // Update state reference for next steps
     saveState(stateAfterClick)
   }
   
-  // Re-load state in case it changed
   val state2 = loadState()
   
-  // 2. Handle keyboard input (Space, tools)
   val afterInput = handleInput(state2)
   
-  // Handle keyboard tool selection
   val finalState = handleKeyboardTools(afterInput)
   
-  // 3. Update game logic
   val updated = updateGameLogic(finalState, dt)
   
-  // 4. Save state
   saveState(updated)
   
-  // 5. Render
   renderGame(updated)
 }
-
-// ============ INITIALIZATION ============
 
 def main(): Unit = {
   val canvasId = "gameCanvas"
@@ -580,8 +494,6 @@ def main(): Unit = {
   if (initCanvas(canvasId, CANVAS_WIDTH, CANVAS_HEIGHT)) {
     initEvents(canvasId)
     
-    // Create initial state with first wave scheduled
-    // Create initial state
     val initial = createInitialState()
     
     val state = GameState(
@@ -592,10 +504,8 @@ def main(): Unit = {
     saveState(state)
     renderGame(state)
     
-    // Register the game step function
     setDoGameStep { processFrameImpl() }
     
-    // Start the animation loop
     startLoop()
     
     println("Game started with Effekt logic!")

@@ -11,13 +11,11 @@ import src/effects
  * @effect State - Reads and modifies minion state
  */
 def applyLastHit(clickPos: Vec2): Unit / State = {
-  // Threshold from plan/types
   val threshold = LASTHIT_THRESHOLD
   val clickRadius = 30.0
   
   val state = do getState()
   
-  // Find a valid target (alive, low HP, close to click)
   val target = listFind(state.minions) { m =>
     m.isAlive &&
     m.currentHp <= threshold &&
@@ -26,7 +24,6 @@ def applyLastHit(clickPos: Vec2): Unit / State = {
   
   target match {
     case Some(minion) =>
-      // Kill the minion
       val newMinions = listMap(state.minions) { m =>
         if (m.id == minion.id) {
           Minion(

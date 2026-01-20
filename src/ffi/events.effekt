@@ -1,9 +1,5 @@
 module src/ffi/events
 
-// ============================================================
-// DOM Events FFI Bindings for User Input
-// ============================================================
-
 extern js """
   let $mouseX = 0;
   let $mouseY = 0;
@@ -90,34 +86,26 @@ extern js """
   }
 """
 
-// Initialize event listeners on the canvas
 extern def initEvents(canvasId: String): Bool =
   js "$initEvents(${canvasId})"
 
-// Get current mouse X position
 extern def getMouseX(): Double =
   js "$getMouseX()"
 
-// Get current mouse Y position  
 extern def getMouseY(): Double =
   js "$getMouseY()"
 
-// Check if mouse button is currently held down
 extern def isMouseDown(): Bool =
   js "$isMouseDown()"
 
-// Check if mouse was clicked (returns true once per click)
 extern def wasMouseClicked(): Bool =
   js "$wasMouseClicked()"
 
-// Check if a key is currently held down
 extern def isKeyPressed(key: String): Bool =
   js "$isKeyPressed(${key})"
 
-// Check if a key was just pressed (returns true once per press)
 extern def wasKeyJustPressed(key: String): Bool =
   js "$wasKeyJustPressed(${key})"
 
-// Clear input state (call at end of frame)
 extern def clearInputState(): Unit =
   js "$clearInputState()"

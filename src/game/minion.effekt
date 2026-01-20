@@ -3,13 +3,13 @@ module src/game/minion
 import src/types
 import src/effects
 
-// ============================================================
-// Minion Behavior - Movement, Targeting, and Attack Logic
-// ============================================================
-
-// Find nearest enemy minion for targeting
+/**
+ * Find nearest enemy minion for targeting.
+ * @param minion - The minion searching for a target
+ * @param allMinions - List of all minions
+ * @return ID of nearest enemy, or -1 if none found
+ */
 def findNearestEnemy(minion: Minion, allMinions: List[Minion]): Int = {
-  // Filter for alive enemies
   def findNearest(enemies: List[Minion], nearestId: Int, nearestDist: Double): Int = {
     enemies match {
       case Nil() => nearestId
@@ -43,57 +43,55 @@ def findNearestEnemy(minion: Minion, allMinions: List[Minion]): Int = {
   findNearest(allMinions, -1, 999999.0)
 }
 
-// Check if minion can attack (cooldown expired)
+/**
+ * Check if minion can attack (cooldown expired).
+ * @param minion - The minion to check
+ * @param currentTime - Current simulation time
+ * @return True if cooldown has expired
+ */
 def canAttack(minion: Minion, currentTime: Double): Bool = {
   val cooldown = 1.0 / minion.stats.attackSpeed
   currentTime - minion.lastAttackTime >= cooldown
 }
 
-// Check if target is in attack range
+/**
+ * Check if target is in attack range.
+ * @param minion - The attacking minion
+ * @param targetPos - Position of the target
+ * @return True if target is within attack range
+ */
 def isInAttackRange(minion: Minion, targetPos: Vec2): Bool = {
   distance(minion.position, targetPos) <= minion.stats.attackRange
 }
 
-// Move minion towards target position
-// Calculate separation vector to avoid overlapping with other minions
+/**
+ * Calculate separation vector to avoid overlapping with other minions.
+ * @param minion - The minion to calculate separation for
+ * @param allMinions - List of all minions
+ * @return Separation force vector
+ */
 def calculateSeparation(minion: Minion, allMinions: List[Minion]): Vec2 = {
   var separation = Vec2(0.0, 0.0)
   var count = 0
   
-  // Basic radius for collision (could be minion type specific)
   val myRadius = getMinionRadius(minion.minionType)
   
   listForEach(allMinions) { other =>
     if (minion.id != other.id && other.isAlive) {
       val dist = distance(minion.position, other.position)
       val otherRadius = getMinionRadius(other.minionType)
-      val safeDist = myRadius + otherRadius + 2.0 // Add small buffer
+      val safeDist = myRadius + otherRadius + 2.0
       
       if (dist < safeDist) {
-        // Push away
-        val pushDir = if (dist > 0.0) normalize(sub(minion.position, other.position)) else Vec2(1.0, 0.0) // Handle exact overlap
+        val pushDir = if (dist > 0.0) normalize(sub(minion.position, other.position)) else Vec2(1.0, 0.0)
         
-        // Force inversely proportional to distance (stronger when closer)
-        // Hard separation: if overlapping significantly, force should be huge
         val overlap = safeDist - dist
-        // Force = overlap / dist (so it explodes as dist -> 0)
-        // Add a small epsilon to dist to avoid div by zero safely
         val forceMagnitude = overlap / (dist + 0.1) * 10.0
         
         var forceVec = scale(pushDir, forceMagnitude)
         
-        // Side-Stepping / Tangential Force
-        // If the push is mostly opposed to movement (X-axis in a horizontal lane), 
-        // we need to divert sideways (Y-axis).
-        // Check if collision is mostly horizontal (dot product with X-axis is high)
-        // Simple heuristic: Add a tangential component perpendicular to the push direction.
-        
-        // Perpendicular vector (-y, x) or (y, -x)
-        // We prefer to move towards the "open" space or just away from center?
-        // Let's use ID to determine "preferred side" to avoid two minions sliding into each other same way
         val sideDir = if (modDouble(minion.id.toDouble, 2.0) == 0.0) Vec2(0.0 - pushDir.y, pushDir.x) else Vec2(pushDir.y, 0.0 - pushDir.x)
         
-        // Add tangential force proportional to how "stuck" we are (forceMagnitude)
         val tangentForce = scale(sideDir, forceMagnitude * 0.5)
         
         forceVec = add(forceVec, tangentForce)
@@ -105,16 +103,21 @@ def calculateSeparation(minion: Minion, allMinions: List[Minion]): Vec2 = {
   }
   
   if (count > 0) {
-    // separation
-    scale(separation, 50.0) // Significant boost to separation weight
+    scale(separation, 50.0)
   } else {
     Vec2(0.0, 0.0)
   }
 }
 
-// Move minion towards target position with separation
+/**
+ * Move minion towards target position with separation.
+ * @param minion - The minion to move
+ * @param targetPos - Target position
+ * @param deltaTime - Time delta
+ * @param allMinions - All minions for collision avoidance
+ * @return New position
+ */
 def moveTowards(minion: Minion, targetPos: Vec2, deltaTime: Double, allMinions: List[Minion]): Vec2 = {
-  // 1. Seek target
   val dirToTarget = sub(targetPos, minion.position)
   val distToTarget = magnitude(dirToTarget)
   
@@ -124,47 +127,58 @@ def moveTowards(minion: Minion, targetPos: Vec2, deltaTime: Double, allMinions: 
     Vec2(0.0, 0.0)
   }
   
-  // 2. Separation
   val separationForce = calculateSeparation(minion, allMinions)
   
-  // 3. Combine
-  // Allow separation to override seek if collision is imminent
   val combinedVelocity = add(seekVelocity, separationForce)
-  
-  // Cap max speed slightly to prevent explosion, but allow temporary speedup for separation
-  // Or just trusting the simulation step to be small enough
   
   val movement = scale(combinedVelocity, deltaTime)
   add(minion.position, movement)
 }
 
-// Simple pseudo-random generator
+/**
+ * Simple pseudo-random generator.
+ * @param seed - Seed value
+ * @return Pseudo-random value between 0.0 and 1.0
+ */
 def pseudoRandom(seed: Int): Double = {
   val s = seed.toDouble * 12.9898
   val fraction = modDouble(s, 1.0)
-  fraction // 0.0 to 1.0
+  fraction
 }
 
-// Get the goal position for a minion when no enemies are present
+/**
+ * Get the goal position for a minion when no enemies are present.
+ * @param minion - The minion
+ * @return Goal position
+ */
 def getGoalPosition(minion: Minion): Vec2 = {
   val goalX = minion.team match {
     case Blue() => LANE_END_X
     case Red() => LANE_START_X
   }
   
-  // Add some random spread to the lane Y
-  // Use minion ID as seed so it's consistent for that minion
-  val spread = (pseudoRandom(minion.id) - 0.5) * 60.0 // +/- 30 pixels spread
+  val spread = (pseudoRandom(minion.id) - 0.5) * 60.0
   
   Vec2(goalX, LANE_Y + spread)
 }
 
-// Find a minion by ID
+/**
+ * Find a minion by ID.
+ * @param minions - List of minions
+ * @param id - ID to find
+ * @return Option containing the minion if found
+ */
 def findMinionById(minions: List[Minion], id: Int): Option[Minion] = {
   listFind(minions) { m => m.id == id }
 }
 
-// Check if target minion is still valid (alive and enemy)
+/**
+ * Check if target minion is still valid (alive and enemy).
+ * @param minion - The minion checking
+ * @param targetId - ID of target to validate
+ * @param allMinions - All minions
+ * @return True if target is valid
+ */
 def isTargetValid(minion: Minion, targetId: Int, allMinions: List[Minion]): Bool = {
   val target = findMinionById(allMinions, targetId)
   target match {

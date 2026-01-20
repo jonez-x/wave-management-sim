@@ -1,10 +1,5 @@
 module src/ffi/animation
 
-// ============================================================
-// Animation FFI - Pure timing utilities
-// No type dependencies - just JS primitives
-// ============================================================
-
 extern js """
   let $running = false;
   let $lastTime = 0;
@@ -55,26 +50,20 @@ extern js """
   }
 """
 
-// Start the game loop
 extern def startGameLoop(): Unit =
   js "$startGameLoop()"
 
-// Stop the game loop  
 extern def stopGameLoop(): Unit =
   js "$stopGameLoop()"
 
-// Check if loop is running
 extern def isGameLoopRunning(): Bool =
   js "$isGameLoopRunning()"
 
-// Check if a frame is ready
 extern def isFrameReady(): Bool =
   js "$isFrameReady()"
 
-// Consume the frame and get delta time
 extern def consumeFrame(): Double =
   js "$consumeFrame()"
 
-// Get current time in seconds
 extern def getTimeNow(): Double =
   js "$getTimeNow()"

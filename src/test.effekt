@@ -55,12 +55,12 @@ def main() = mainSuite("Wave Management Simulator Tests") {
     
     test("Cannon MinionStats") {
       val stats = getMinionStats(Cannon())
-      assertEqual(stats.maxHp, 900.0)
+      assertEqual(stats.maxHp, 912.0)
       assertEqual(stats.goldValue, 60)
     }
     
     test("Minion creation") {
-      val minion = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0))
+      val minion = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
       assertEqual(minion.id, 1)
       assertEqual(minion.currentHp, 477.0)
       assertEqual(minion.isAlive, true)
@@ -120,7 +120,9 @@ def main() = mainSuite("Wave Management Simulator Tests") {
           initial.nextEntityId,
           Neutral(),
           false,
-          Vec2(0.0, 0.0)
+          Vec2(0.0, 0.0),
+          Nil(),
+          Nil()
         )
         do setState(newState)
         val state = do getState()
@@ -190,7 +192,7 @@ def main() = mainSuite("Wave Management Simulator Tests") {
     test("addMinion adds to list") {
       val initial = createInitialState()
       withState(initial) {
-        val minion = createMinion(10, Blue(), Melee(), Vec2(200.0, 200.0))
+        val minion = createMinion(10, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
         addMinion(minion)
         val minions = getMinions()
         assertEqual(listLength(minions), 1)

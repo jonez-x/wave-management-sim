@@ -2,15 +2,11 @@ module src/effects
 
 import src/types
 
-// ============ STATE INTERFACE ============
-// Manages the entire game state
-
 interface State {
   def getState(): GameState
   def setState(state: GameState): Unit
 }
 
-// Helper functions using State effect
 def getMinions(): List[Minion] / State =
   do getState().minions
 
@@ -41,8 +37,6 @@ def getNextSpawnTime(): Double / State =
 def getWaveState(): WaveState / State =
   do getState().waveState
 
-
-// Modifier helpers - using getState/setState
 def setMinions(newMinions: List[Minion]): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -393,16 +387,12 @@ interface Render {
   def drawProjectile(p: Projectile): Unit
 }
 
-// ============ RANDOM INTERFACE ============
-// For any randomization needed
 
 interface Random {
   def randomDouble(): Double
   def randomInt(max: Int): Int
 }
 
-// ============ LOGGING INTERFACE ============
-// For debug output
 
 interface Log {
   def log(message: String): Unit

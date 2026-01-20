@@ -4,21 +4,26 @@ import src/types
 import src/effects
 import src/handlers
 
-// ============================================================
-// Wave Spawning - Creates waves of minions for both teams
-// ============================================================
-
-// Check if this wave should have a cannon minion
+/**
+ * Check if this wave should have a cannon minion.
+ * @param waveNumber - Current wave number
+ * @return True if cannon wave
+ */
 def isCannonWave(waveNumber: Int): Bool = {
   waveNumber > 0 && modulo(waveNumber, CANNON_WAVE_INTERVAL) == 0
 }
 
-// Schedule a wave of minions for one team
-// Returns a list of PendingSpawn
+/**
+ * Schedule a wave of minions for one team.
+ * @param team - Team to spawn for
+ * @param waveNumber - Current wave number
+ * @param StartTime - Time to start spawning
+ * @return List of PendingSpawn
+ */
 def scheduleTeamWave(team: Team, waveNumber: Int, StartTime: Double): List[PendingSpawn] = {
   var spawns: List[PendingSpawn] = Nil()
   var time = StartTime
-  val interval = 0.8 // 0.8s ~ 1.0s delay for snake formation
+  val interval = 0.8
   
   // 3 Melee minions
   spawns = Cons(PendingSpawn(team, Melee(), time, 0.0), spawns)
@@ -34,30 +39,35 @@ def scheduleTeamWave(team: Team, waveNumber: Int, StartTime: Double): List[Pendi
     time = time + interval
   }
   
-  // 3 Caster minions
   spawns = Cons(PendingSpawn(team, Caster(), time, 0.0), spawns)
   time = time + interval
   spawns = Cons(PendingSpawn(team, Caster(), time, 0.0), spawns)
   time = time + interval
   spawns = Cons(PendingSpawn(team, Caster(), time, 0.0), spawns)
   
-  // List is reversed due to Cons, but order doesn't strictly matter for execution 
-  // if we sort by time or just process all eligible. 
-  // However, simpler to just reverse strict order if needed.
-  // Actually, Cons adds to front. So Caster 3 is first.
-  // We want Melee 1 first. Let's not worry about list order for now, 
-  // the processing loop will check timestamps.
   spawns
 }
 
-// Schedule waves for both teams
+/**
+ * Schedule waves for both teams.
+ * @param waveNumber - Current wave number
+ * @param currentTime - Current game time
+ * @return Combined list of PendingSpawn for both teams
+ */
 def scheduleBothWaves(waveNumber: Int, currentTime: Double): List[PendingSpawn] = {
   val blueSpawns = scheduleTeamWave(Blue(), waveNumber, currentTime)
   val redSpawns = scheduleTeamWave(Red(), waveNumber, currentTime)
   listAppend(blueSpawns, redSpawns)
 }
 
-// Check if it's time to create a new wave schedule
+/**
+ * Check if it's time to create a new wave schedule.
+ * @param gameTime - Current game time
+ * @param nextSpawnTime - Next scheduled spawn time
+ * @param waveNumber - Current wave number
+ * @param currentPending - Current pending spawns
+ * @return Tuple of (updated pending, new wave number, next spawn time)
+ */
 def checkAndScheduleWaves(gameTime: Double, nextSpawnTime: Double, waveNumber: Int, 
                           currentPending: List[PendingSpawn]): (List[PendingSpawn], Int, Double) = {
   if (gameTime >= nextSpawnTime) {
@@ -71,7 +81,14 @@ def checkAndScheduleWaves(gameTime: Double, nextSpawnTime: Double, waveNumber: I
   }
 }
 
-// Process pending spawns - create minions if their time has come
+/**
+ * Process pending spawns - create minions if their time has come.
+ * @param pending - List of pending spawns
+ * @param minions - Current minions
+ * @param nextId - Next entity ID
+ * @param currentTime - Current game time
+ * @return Tuple of (new minions, remaining pending, next ID)
+ */
 def processPendingSpawns(pending: List[PendingSpawn], minions: List[Minion], 
                          nextId: Int, currentTime: Double): (List[Minion], List[PendingSpawn], Int) = {
                          
@@ -81,13 +98,10 @@ def processPendingSpawns(pending: List[PendingSpawn], minions: List[Minion],
   
   listForEach(pending) { spawn =>
     if (currentTime >= spawn.spawnTime) {
-      // It's time to spawn!
       val spawnX = spawn.team match {
         case Blue() => BLUE_SPAWN_X
         case Red() => RED_SPAWN_X
       }
-      // Simple spawn at Nexus position
-      // Minions will "walk in a line" because they spawn sequentially and move to same target
       val spawnPos = Vec2(spawnX, LANE_Y) 
       
       val minion = createMinion(currentNextId, spawn.team, spawn.minionType, spawnPos, currentTime)
@@ -95,7 +109,6 @@ def processPendingSpawns(pending: List[PendingSpawn], minions: List[Minion],
       
       newMinions = Cons(minion, newMinions)
     } else {
-      // Not time yet, keep in queue
       remainingPending = Cons(spawn, remainingPending)
     }
   }
@@ -103,7 +116,11 @@ def processPendingSpawns(pending: List[PendingSpawn], minions: List[Minion],
   (newMinions, remainingPending, currentNextId)
 }
 
-// Get expected wave size
+/**
+ * Get expected wave size.
+ * @param waveNumber - Wave number to check
+ * @return Number of minions in the wave
+ */
 def getWaveSize(waveNumber: Int): Int = {
   val base = 6
   if (isCannonWave(waveNumber)) {

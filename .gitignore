@@ -1,6 +1,10 @@
 # Effekt
 out
-
 # Nix
 result
 result-*
+
+.agent/rules
+.agent/planning
+
+.DS_Store

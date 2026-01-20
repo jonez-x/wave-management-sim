@@ -1,12 +1,5 @@
 module src/types
 
-// ============================================================
-// Wave Management Simulator - Core Data Types
-// Phase 2: Type definitions for simulation entities
-// ============================================================
-
-// ============ POSITION & VECTORS ============
-
 record Vec2(x: Double, y: Double)
 
 def add(v1: Vec2, v2: Vec2): Vec2 =
@@ -32,11 +25,14 @@ def normalize(v: Vec2): Vec2 = {
 def distance(p1: Vec2, p2: Vec2): Double =
   magnitude(sub(p2, p1))
 
-// Square root approximation using Newton's method
+/**
+ * Square root approximation using Newton's method.
+ * @param x - The value to compute the square root of
+ * @return The square root approximation
+ */
 def sqrt(x: Double): Double = {
   if (x <= 0.0) 0.0
   else {
-    // Newton's method for square root
     def iterate(guess: Double, n: Int): Double = {
       if (n <= 0) guess
       else {
@@ -47,8 +43,6 @@ def sqrt(x: Double): Double = {
     iterate(x / 2.0, 10)
   }
 }
-
-// ============ TEAM ============
 
 type Team {
   Blue()
@@ -67,8 +61,6 @@ def teamName(team: Team): String =
     case Red() => "Red"
   }
 
-// ============ MINION TYPES ============
-
 type MinionType {
   Melee()
   Caster()
@@ -82,23 +74,17 @@ def minionTypeName(minionType: MinionType): String =
     case Cannon() => "Cannon"
   }
 
-// ============ MINION STATS (League-accurate) ============
-
 record MinionStats(
   maxHp: Double,
   attackDamage: Double,
-  attackSpeed: Double,      // attacks per second
-  attackRange: Double,      // pixels
-  movementSpeed: Double,    // pixels per second
+  attackSpeed: Double,
+  attackRange: Double,
+  movementSpeed: Double,
   goldValue: Int
 )
 
-// Scale factor: LoL Units -> Simulation Pixels
-// LoL Minion Radius ~ 48 units. Sim Radius ~ 12 pixels.
-// Ratio = 12 / 48 = 0.25.
 val STAT_SCALE: Double = 0.25
 
-// Damage Scale: Slower combat for wave stacking
 val DAMAGE_SCALE: Double = 0.6
 
 def getMinionStats(minionType: MinionType): MinionStats =
@@ -129,7 +115,11 @@ def getMinionStats(minionType: MinionType): MinionStats =
     )
   }
 
-// Get minion radius for rendering
+/**
+ * Get minion radius for rendering.
+ * @param minionType - The type of minion
+ * @return The radius in pixels
+ */
 def getMinionRadius(minionType: MinionType): Double =
   minionType match {
     case Melee() => 12.0
@@ -139,6 +129,7 @@ def getMinionRadius(minionType: MinionType): Double =
 
 // ============ MINION ============
 
+/** Minion entity with position, health, and combat state. targetId of -1 means no target. */
 record Minion(
   id: Int,
   team: Team,
@@ -146,30 +137,31 @@ record Minion(
   position: Vec2,
   currentHp: Double,
   stats: MinionStats,
-  targetId: Int,            // -1 means no target
+  targetId: Int,
   lastAttackTime: Double,
   isAlive: Bool
 )
 
-// Apply scaling based on game time (90s cycles)
+/**
+ * Apply scaling based on game time (90s cycles).
+ * @param stats - Base minion stats
+ * @param minionType - The type of minion
+ * @param gameTime - Current game time in seconds
+ * @return Scaled stats
+ */
 def applyScaling(stats: MinionStats, minionType: MinionType, gameTime: Double): MinionStats = {
-  // Cycle starts after first wave spawn (approx 90s interval)
-  // Let's assume cycle 0 starts at 0:00 for simplicity or align with wave spawns
-  // Formula: Cycles = floor((t - StartTime) / 90)
   val cycleDuration = 90.0
   val cycles = floorDouble(maxDouble(0.0, gameTime) / cycleDuration)
   
   if (cycles <= 0.0) {
     stats
   } else {
-    // Scaling coefficients
     val (hpGrowth, adGrowth) = minionType match {
-      case Melee() => (20.0, 0.5) // +20 HP, +0.5 AD
-      case Caster() => (15.0, 2.0) // +15 HP, +2.0 AD
-      case Cannon() => (50.0, 3.0) // +50 HP, +3.0 AD
+      case Melee() => (20.0, 0.5)
+      case Caster() => (15.0, 2.0)
+      case Cannon() => (50.0, 3.0)
     }
     
-    // Calculate bonuses
     val bonusHp = hpGrowth * cycles
     val bonusAd = adGrowth * cycles
     
@@ -178,7 +170,7 @@ def applyScaling(stats: MinionStats, minionType: MinionType, gameTime: Double): 
       attackDamage = stats.attackDamage + bonusAd,
       attackSpeed = stats.attackSpeed,
       attackRange = stats.attackRange,
-      movementSpeed = stats.movementSpeed, // Speed scaling handled separately if needed
+      movementSpeed = stats.movementSpeed,
       goldValue = stats.goldValue
     )
   }
@@ -204,7 +196,6 @@ def createMinion(id: Int, team: Team, minionType: MinionType, spawnPos: Vec2, ga
 def hasTarget(minion: Minion): Bool =
   minion.targetId >= 0
 
-// ============ TURRET ============
 
 record TurretStats(
   maxHp: Double,
@@ -225,7 +216,7 @@ record Turret(
   team: Team,
   position: Vec2,
   currentHp: Double,
-  targetId: Int,            // -1 means no target
+  targetId: Int,
   lastAttackTime: Double,
   isAlive: Bool
 )
@@ -240,8 +231,6 @@ def createTurret(id: Int, team: Team, pos: Vec2): Turret =
     lastAttackTime = 0.0,
     isAlive = true
   )
-
-// ============ TOOL TYPES ============
 
 type Tool {
   LastHitTool()
@@ -262,13 +251,10 @@ def toolName(tool: Tool): String =
     case NoTool() => "None"
   }
 
-// Tool parameters
 val AOE_RADIUS: Double = 80.0
 val AOE_DAMAGE: Double = 150.0
 val FULL_CLEAR_RANGE: Double = 200.0
 val LASTHIT_THRESHOLD: Double = 50.0
-
-// ============ PROJECTILES ============
 
 record Projectile(
   id: Int,
@@ -276,11 +262,9 @@ record Projectile(
   targetId: Int,
   damage: Double,
   speed: Double,
-  isCaster: Bool,    // true = Caster (small), false = Cannon (large)
-  targetPos: Vec2    // Snapshot of target position (for validation or non-homing)
+  isCaster: Bool,
+  targetPos: Vec2
 )
-
-// ============ SIMULATION STATE ============
 
 type SimulationSpeed {
   Speed1x()
@@ -301,8 +285,6 @@ def speedName(speed: SimulationSpeed): String =
     case Speed2x() => "2x"
     case Speed4x() => "4x"
   }
-
-// ============ WAVE STATE DETECTION ============
 
 type WaveState {
   Neutral()
@@ -329,16 +311,12 @@ def waveStateName(state: WaveState): String =
     case Bouncing() => "Bouncing"
   }
 
-// ============ GAME STATE ============
-
 record PendingSpawn(
   team: Team,
   minionType: MinionType,
   spawnTime: Double,
-  laneOffset: Double // Use this to vary the path slightly if needed
+  laneOffset: Double
 )
-
-// ============ GAME STATE ============
 
 record GameState(
   minions: List[Minion],
@@ -358,30 +336,21 @@ record GameState(
   pendingSpawns: List[PendingSpawn]
 )
 
-// ============ CONSTANTS ============
-
-// Canvas dimensions
 val CANVAS_WIDTH: Int = 1200
 val CANVAS_HEIGHT: Int = 400
 
-// Lane layout
 val LANE_Y: Double = 200.0
 val LANE_START_X: Double = 100.0
 val LANE_END_X: Double = 1100.0
 
-// Spawn positions
 val BLUE_SPAWN_X: Double = 150.0
 val RED_SPAWN_X: Double = 1050.0
 
-// Wave spawning
 val SPAWN_INTERVAL: Double = 30.0
 val CANNON_WAVE_INTERVAL: Int = 3
 
-// Turret positions
 val BLUE_TURRET_X: Double = 100.0
 val RED_TURRET_X: Double = 1100.0
-
-// ============ INITIAL STATE ============
 
 def createInitialState(): GameState = {
   val blueTurret = createTurret(0, Blue(), Vec2(BLUE_TURRET_X, LANE_Y))
@@ -393,7 +362,7 @@ def createInitialState(): GameState = {
     redTurret = redTurret,
     gameTime = 0.0,
     waveNumber = 0,
-    nextSpawnTime = 0.0, // Start immediately as requested
+    nextSpawnTime = 0.0,
     isPaused = false,
     speed = Speed1x(),
     selectedTool = NoTool(),
@@ -406,9 +375,6 @@ def createInitialState(): GameState = {
   )
 }
 
-// ============ HELPER FUNCTIONS ============
-
-// List helpers
 def listLength[A](list: List[A]): Int =
   list match {
     case Nil() => 0
@@ -451,7 +417,6 @@ def listAppend[A](list1: List[A], list2: List[A]): List[A] =
     case Cons(x, rest) => Cons(x, listAppend(rest, list2))
   }
 
-// Math helpers
 def maxDouble(a: Double, b: Double): Double =
   if (a > b) a else b
 
@@ -464,13 +429,11 @@ def clamp(value: Double, minVal: Double, maxVal: Double): Double =
 def absDouble(x: Double): Double =
   if (x < 0.0) 0.0 - x else x
 
-// Floor function
 def floorDouble(x: Double): Double = {
   val i = x.toInt
   if (x < 0.0 && x != i.toDouble) (i - 1).toDouble
   else i.toDouble
 }
 
-// Modulo for doubles
 def modDouble(x: Double, y: Double): Double =
   x - (floorDouble(x / y) * y)

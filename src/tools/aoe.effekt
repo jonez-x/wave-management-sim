@@ -22,8 +22,6 @@ def applyAoE(centerPos: Vec2, radius: Double, damage: Double, lethal: Bool): Uni
       val potentialHp = m.currentHp - damage
       
       if (lethal || potentialHp > 0.0) {
-        // Use combat module's damage function if available or manual update
-        // Using manual update here to respect lethal flag logic cleanly
         if (potentialHp <= 0.0) {
              Minion(
                 m.id, m.team, m.minionType, m.position, 
@@ -36,7 +34,6 @@ def applyAoE(centerPos: Vec2, radius: Double, damage: Double, lethal: Bool): Uni
               )
         }
       } else {
-        // Non-lethal: clamp at 1.0 minimum
         val safeHp = maxDouble(1.0, potentialHp)
         Minion(
             m.id, m.team, m.minionType, m.position, 
