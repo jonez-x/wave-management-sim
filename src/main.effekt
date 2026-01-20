@@ -350,6 +350,60 @@ def countTeamMinions(minions: List[Minion], team: Team): Int = {
   }
 }
 
+def drawVisualEffect(vfx: VisualEffect, currentTime: Double): Unit = {
+  val elapsed = currentTime - vfx.startTime
+  val progress = elapsed / vfx.duration
+  val alpha = maxDouble(0.0, 1.0 - progress)
+  
+  vfx.effectType match {
+    case ClickRipple() =>
+      val expandedRadius = vfx.radius * (1.0 + progress * 0.5)
+      setStrokeColor(255, 255, 255, alpha * 0.6)
+      setLineWidth(2.0)
+      strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
+      
+    case AoeExplosion() =>
+      val expandedRadius = vfx.radius * (0.8 + progress * 0.4)
+      setStrokeColor(255, 180, 50, alpha * 0.8)
+      setLineWidth(3.0)
+      strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
+      setFillColor(255, 200, 50, alpha * 0.2)
+      fillCircle(vfx.position.x, vfx.position.y, expandedRadius)
+      
+    case LastHitMarker() =>
+      setFillColor(255, 215, 0, alpha)
+      val size = 8.0 * (1.0 - progress * 0.3)
+      fillCircle(vfx.position.x, vfx.position.y - (progress * 15.0), size)
+      setFont("bold 14px Arial")
+      setTextAlign("center")
+      fillText("+", vfx.position.x, vfx.position.y - 10.0 - (progress * 20.0))
+      
+    case KillMarker() =>
+      setStrokeColor(255, 50, 50, alpha)
+      setLineWidth(3.0)
+      val size = 10.0 * (1.0 - progress * 0.2)
+      drawLine(vfx.position.x - size, vfx.position.y - size, vfx.position.x + size, vfx.position.y + size)
+      drawLine(vfx.position.x + size, vfx.position.y - size, vfx.position.x - size, vfx.position.y + size)
+      
+    case TankActivation() =>
+      val expandedRadius = 25.0 * (1.0 + progress * 0.5)
+      setStrokeColor(50, 255, 100, alpha * 0.8)
+      setLineWidth(3.0)
+      strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
+      setFillColor(50, 255, 100, alpha * 0.15)
+      fillCircle(vfx.position.x, vfx.position.y, expandedRadius)
+  }
+}
+
+def drawVisualEffects(effects: List[VisualEffect], currentTime: Double): Unit = {
+  effects match {
+    case Nil() => ()
+    case Cons(vfx, rest) =>
+      drawVisualEffect(vfx, currentTime)
+      drawVisualEffects(rest, currentTime)
+  }
+}
+
 def renderGame(state: GameState): Unit = {
   clearCanvas()
   drawBackground()
@@ -361,6 +415,8 @@ def renderGame(state: GameState): Unit = {
     drawProjectileEntity(p)
   }
   
+  drawVisualEffects(state.visualEffects, state.gameTime)
+  
   drawUI(state)
 }
 
@@ -371,21 +427,21 @@ def removeDeadMinions(minions: List[Minion]): List[Minion] = {
 def updateSpeed(s: GameState, sp: SimulationSpeed): GameState = {
   GameState(
     s.minions, s.blueTurret, s.redTurret, s.gameTime, s.waveNumber, s.nextSpawnTime,
-    s.isPaused, sp, s.selectedTool, s.nextEntityId, s.waveState, s.isPlayerTanking, s.tankPosition, s.projectiles, s.pendingSpawns
+    s.isPaused, sp, s.selectedTool, s.nextEntityId, s.waveState, s.isPlayerTanking, s.tankPosition, s.projectiles, s.pendingSpawns, s.visualEffects
   )
 }
 
 def updateTool(s: GameState, t: Tool): GameState = {
   GameState(
     s.minions, s.blueTurret, s.redTurret, s.gameTime, s.waveNumber, s.nextSpawnTime,
-    s.isPaused, s.speed, t, s.nextEntityId, s.waveState, s.isPlayerTanking, s.tankPosition, s.projectiles, s.pendingSpawns
+    s.isPaused, s.speed, t, s.nextEntityId, s.waveState, s.isPlayerTanking, s.tankPosition, s.projectiles, s.pendingSpawns, s.visualEffects
   )
 }
 
 def updateToolAndTank(s: GameState, t: Tool, tanking: Bool): GameState = {
   GameState(
     s.minions, s.blueTurret, s.redTurret, s.gameTime, s.waveNumber, s.nextSpawnTime,
-    s.isPaused, s.speed, t, s.nextEntityId, s.waveState, tanking, s.tankPosition, s.projectiles, s.pendingSpawns
+    s.isPaused, s.speed, t, s.nextEntityId, s.waveState, tanking, s.tankPosition, s.projectiles, s.pendingSpawns, s.visualEffects
   )
 }
 
@@ -409,7 +465,7 @@ def handleInput(state: GameState): GameState = {
       state.minions, state.blueTurret, state.redTurret, state.gameTime,
       state.waveNumber, state.nextSpawnTime, not(state.isPaused),
       state.speed, state.selectedTool, state.nextEntityId,
-      state.waveState, state.isPlayerTanking, state.tankPosition, state.projectiles, state.pendingSpawns
+      state.waveState, state.isPlayerTanking, state.tankPosition, state.projectiles, state.pendingSpawns, state.visualEffects
     )
   } else {
     state
@@ -451,11 +507,15 @@ def updateGameLogic(state: GameState, dt: Double): GameState = {
             
             val newWaveState = if (newWave > state.waveNumber) Neutral() else state.waveState
             
+            val activeEffects = listFilter(state.visualEffects) { vfx =>
+              (newTime - vfx.startTime) < vfx.duration
+            }
+            
             GameState(
               alive, newBlue, newRed, newTime, newWave, newNextSpawn,
               state.isPaused, state.speed, state.selectedTool, finalNextId,
               newWaveState, state.isPlayerTanking, state.tankPosition,
-              newProjectiles, remainingPending
+              newProjectiles, remainingPending, activeEffects
             )
         }
     }
@@ -498,7 +558,7 @@ def main(): Unit = {
     
     val state = GameState(
       initial.minions, initial.blueTurret, initial.redTurret, 0.0, 0, initial.nextSpawnTime,
-      false, Speed1x(), NoTool(), initial.nextEntityId, Neutral(), false, Vec2(0.0, 0.0), Nil(), Nil()
+      false, Speed1x(), NoTool(), initial.nextEntityId, Neutral(), false, Vec2(0.0, 0.0), Nil(), Nil(), Nil()
     )
         
     saveState(state)

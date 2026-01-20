@@ -54,7 +54,8 @@ def setMinions(newMinions: List[Minion]): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -75,7 +76,8 @@ def setGameTime(newTime: Double): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -96,7 +98,8 @@ def setPaused(paused: Bool): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -117,7 +120,8 @@ def setSpeed(newSpeed: SimulationSpeed): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -138,7 +142,8 @@ def setSelectedTool(tool: Tool): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -159,7 +164,8 @@ def incrementWaveNumber(): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -180,7 +186,8 @@ def setNextSpawnTime(time: Double): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -201,7 +208,8 @@ def setWaveState(newWaveState: WaveState): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -222,7 +230,8 @@ def getNextEntityId(): Int / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
   state.nextEntityId
 }
@@ -244,7 +253,8 @@ def addMinion(minion: Minion): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -265,7 +275,8 @@ def updateBlueTurret(turret: Turret): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -286,7 +297,8 @@ def updateRedTurret(turret: Turret): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -307,7 +319,8 @@ def setTankPosition(pos: Vec2, isTanking: Bool): Unit / State = {
     isTanking,
     pos,
     state.projectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -328,7 +341,8 @@ def setProjectiles(newProjectiles: List[Projectile]): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     newProjectiles,
-    state.pendingSpawns
+    state.pendingSpawns,
+    state.visualEffects
   ))
 }
 
@@ -349,13 +363,37 @@ def setPendingSpawns(newPending: List[PendingSpawn]): Unit / State = {
     state.isPlayerTanking,
     state.tankPosition,
     state.projectiles,
-    newPending
+    newPending,
+    state.visualEffects
   ))
 }
 
+def setVisualEffects(newEffects: List[VisualEffect]): Unit / State = {
+  val state = do getState()
+  do setState(GameState(
+    state.minions,
+    state.blueTurret,
+    state.redTurret,
+    state.gameTime,
+    state.waveNumber,
+    state.nextSpawnTime,
+    state.isPaused,
+    state.speed,
+    state.selectedTool,
+    state.nextEntityId,
+    state.waveState,
+    state.isPlayerTanking,
+    state.tankPosition,
+    state.projectiles,
+    state.pendingSpawns,
+    newEffects
+  ))
+}
 
-// ============ TIME INTERFACE ============
-// Manages simulation time and scheduling
+def addVisualEffect(vfx: VisualEffect): Unit / State = {
+  val state = do getState()
+  setVisualEffects(Cons(vfx, state.visualEffects))
+}
 
 interface Time {
   def getCurrentTime(): Double
@@ -363,17 +401,11 @@ interface Time {
   def getSpeedMultiplier(): Double
 }
 
-// ============ INPUT INTERFACE ============
-// Handles user input
-
 interface Input {
   def getMousePosition(): Vec2
   def wasClicked(): Bool
   def isKeyDown(key: String): Bool
 }
-
-// ============ RENDER INTERFACE ============
-// Abstracts rendering operations
 
 interface Render {
   def clear(): Unit
@@ -387,12 +419,10 @@ interface Render {
   def drawProjectile(p: Projectile): Unit
 }
 
-
 interface Random {
   def randomDouble(): Double
   def randomInt(max: Int): Int
 }
-
 
 interface Log {
   def log(message: String): Unit

@@ -101,7 +101,8 @@ def simulationStep(deltaTime: Double): Unit / {State, Time} = {
               state.isPlayerTanking,
               state.tankPosition,
               newProjectiles,
-              remainingPending
+              remainingPending,
+              state.visualEffects
             ))
         }
     }

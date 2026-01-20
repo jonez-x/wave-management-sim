@@ -35,6 +35,14 @@ def applyLastHit(clickPos: Vec2): Unit / State = {
         }
       }
       setMinions(newMinions)
+      
+      val effectId = getNextEntityId()
+      val vfx = VisualEffect(
+        effectId, LastHitMarker(), minion.position,
+        state.gameTime, EFFECT_DURATION, 10.0
+      )
+      addVisualEffect(vfx)
+      
     case None() => ()
   }
 }

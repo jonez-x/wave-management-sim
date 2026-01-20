@@ -13,7 +13,7 @@ import src/effects
  */
 def killCasters(clickPos: Vec2, targetTeam: Team): Unit / State = {
   val state = do getState()
-  val range = 200.0 // Reasonable range to catch a wave
+  val range = 200.0
   
   val newMinions = listMap(state.minions) { m =>
     val isTarget = m.isAlive && 
@@ -35,6 +35,13 @@ def killCasters(clickPos: Vec2, targetTeam: Team): Unit / State = {
   }
   
   setMinions(newMinions)
+  
+  val effectId = getNextEntityId()
+  val vfx = VisualEffect(
+    effectId, KillMarker(), clickPos,
+    state.gameTime, EFFECT_DURATION, range
+  )
+  addVisualEffect(vfx)
 }
 
 /**
@@ -68,4 +75,11 @@ def fullClear(centerPos: Vec2, range: Double, targetTeam: Team): Unit / State = 
   }
   
   setMinions(newMinions)
+  
+  val effectId = getNextEntityId()
+  val vfx = VisualEffect(
+    effectId, KillMarker(), centerPos,
+    state.gameTime, EFFECT_DURATION, range
+  )
+  addVisualEffect(vfx)
 }

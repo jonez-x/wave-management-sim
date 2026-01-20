@@ -11,7 +11,15 @@ import src/effects
  * @effect State - Updates tanking state
  */
 def activateTank(pos: Vec2): Unit / State = {
+  val state = do getState()
   setTankPosition(pos, true)
+  
+  val effectId = getNextEntityId()
+  val vfx = VisualEffect(
+    effectId, TankActivation(), pos,
+    state.gameTime, EFFECT_DURATION, 25.0
+  )
+  addVisualEffect(vfx)
 }
 
 /**

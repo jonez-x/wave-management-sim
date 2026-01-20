@@ -46,4 +46,11 @@ def applyAoE(centerPos: Vec2, radius: Double, damage: Double, lethal: Bool): Uni
   }
   
   setMinions(newMinions)
+  
+  val effectId = getNextEntityId()
+  val vfx = VisualEffect(
+    effectId, AoeExplosion(), centerPos,
+    state.gameTime, EFFECT_DURATION, radius
+  )
+  addVisualEffect(vfx)
 }

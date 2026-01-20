@@ -311,6 +311,25 @@ def waveStateName(state: WaveState): String =
     case Bouncing() => "Bouncing"
   }
 
+type VisualEffectType {
+  ClickRipple()
+  AoeExplosion()
+  LastHitMarker()
+  KillMarker()
+  TankActivation()
+}
+
+val EFFECT_DURATION: Double = 0.4
+
+record VisualEffect(
+  id: Int,
+  effectType: VisualEffectType,
+  position: Vec2,
+  startTime: Double,
+  duration: Double,
+  radius: Double
+)
+
 record PendingSpawn(
   team: Team,
   minionType: MinionType,
@@ -333,7 +352,8 @@ record GameState(
   isPlayerTanking: Bool,
   tankPosition: Vec2,
   projectiles: List[Projectile],
-  pendingSpawns: List[PendingSpawn]
+  pendingSpawns: List[PendingSpawn],
+  visualEffects: List[VisualEffect]
 )
 
 val CANVAS_WIDTH: Int = 1200
@@ -371,7 +391,8 @@ def createInitialState(): GameState = {
     isPlayerTanking = false,
     tankPosition = Vec2(0.0, 0.0),
     projectiles = Nil(),
-    pendingSpawns = Nil()
+    pendingSpawns = Nil(),
+    visualEffects = Nil()
   )
 }
 
