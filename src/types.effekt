@@ -206,9 +206,9 @@ record TurretStats(
 
 val TURRET_STATS: TurretStats = TurretStats(
   maxHp = 5000.0,
-  attackDamage = 152.0 * DAMAGE_SCALE,
+  attackDamage = 152.0,       // Voller Schaden ohne DAMAGE_SCALE
   attackSpeed = 0.83,
-  attackRange = 750.0 * STAT_SCALE
+  attackRange = 150.0         // Etwas größer als Caster-Range (137.5)
 )
 
 record Turret(
@@ -263,6 +263,7 @@ record Projectile(
   damage: Double,
   speed: Double,
   isCaster: Bool,
+  isTurret: Bool,    // Turret-Projektile sind größer und auffälliger
   targetPos: Vec2
 )
 
