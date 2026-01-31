@@ -269,16 +269,24 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
     val shouldTargetTank = isTanking && 
                            distance(minion.position, tankPos) <= tankAggroRange
     
+    // Check if enemy turret is in attack range - TURRET HAS PRIORITY
+    val enemyTurretForTarget = minion.team match {
+      case Blue() => redTurret
+      case Red() => blueTurret
+    }
+    val turretInRange = enemyTurretForTarget.isAlive && 
+                         isInAttackRange(minion, enemyTurretForTarget.position)
+    
     val currentTarget = if (shouldTargetTank) {
       if (minion.targetId == tankTargetId) tankTargetId
       else tankTargetId
+    } else if (turretInRange) {
+      // TURRET PRIORITY: If turret is in range, always attack turret
+      -1  // -1 means attack turret
     } else {
       if (minion.targetId == tankTargetId) -1
       else if (minion.targetId >= 0 && isTargetValid(minion, minion.targetId, allMinions)) {
-        // We have a valid target. 
-        // Check if we should stick to it.
-        // Rule: Sticky ONLY if in attack range. If chasing, always look for closer targets.
-        // This ensures Casters retarget Melees (Collision Line) if they were chasing something else.
+        // We have a valid minion target and turret is NOT in range
         findMinionById(allMinions, minion.targetId) match {
           case Some(target) =>
             if (isInAttackRange(minion, target.position)) {
