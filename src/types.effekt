@@ -360,17 +360,26 @@ val CANVAS_WIDTH: Int = 1200
 val CANVAS_HEIGHT: Int = 400
 
 val LANE_Y: Double = 200.0
-val LANE_START_X: Double = 100.0
-val LANE_END_X: Double = 1100.0
 
-val BLUE_SPAWN_X: Double = 150.0
-val RED_SPAWN_X: Double = 1050.0
+// Lane-Grenzen - erweitert hinter die Türme für Spawn-Bereiche
+val LANE_START_X: Double = 10.0   // Ganz links (hinter blauem Turm)
+val LANE_END_X: Double = 1190.0   // Ganz rechts (hinter rotem Turm)
+
+// Lane Boundaries - Vertikale Grenzen
+val LANE_MIN_Y: Double = 100.0
+val LANE_MAX_Y: Double = 300.0
+val LANE_HEIGHT: Double = 200.0
+
+// Spawn-Positionen hinter den Türmen (in der geschützten Zone)
+val BLUE_SPAWN_X: Double = 60.0   // Ganz links, hinter blauem Turm
+val RED_SPAWN_X: Double = 1140.0  // Ganz rechts, hinter rotem Turm
 
 val SPAWN_INTERVAL: Double = 30.0
 val CANNON_WAVE_INTERVAL: Int = 3
 
-val BLUE_TURRET_X: Double = 100.0
-val RED_TURRET_X: Double = 1100.0
+// Turm-Positionen weiter nach innen für größere Spawn-Zonen
+val BLUE_TURRET_X: Double = 150.0
+val RED_TURRET_X: Double = 1050.0
 
 def createInitialState(): GameState = {
   val blueTurret = createTurret(0, Blue(), Vec2(BLUE_TURRET_X, LANE_Y))

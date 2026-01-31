@@ -25,12 +25,12 @@ def scheduleTeamWave(team: Team, waveNumber: Int, StartTime: Double): List[Pendi
   var time = StartTime
   val interval = 0.8
   
-  // 3 Melee minions
-  spawns = Cons(PendingSpawn(team, Melee(), time, 0.0), spawns)
+  // 3 Melee minions - minimale Streuung
+  spawns = Cons(PendingSpawn(team, Melee(), time, -8.0), spawns)
   time = time + interval
   spawns = Cons(PendingSpawn(team, Melee(), time, 0.0), spawns)
   time = time + interval
-  spawns = Cons(PendingSpawn(team, Melee(), time, 0.0), spawns)
+  spawns = Cons(PendingSpawn(team, Melee(), time, 8.0), spawns)
   time = time + interval
   
   // Cannon minion (if applicable)
@@ -39,11 +39,12 @@ def scheduleTeamWave(team: Team, waveNumber: Int, StartTime: Double): List[Pendi
     time = time + interval
   }
   
-  spawns = Cons(PendingSpawn(team, Caster(), time, 0.0), spawns)
+  // Caster minions - minimale Streuung
+  spawns = Cons(PendingSpawn(team, Caster(), time, -6.0), spawns)
   time = time + interval
   spawns = Cons(PendingSpawn(team, Caster(), time, 0.0), spawns)
   time = time + interval
-  spawns = Cons(PendingSpawn(team, Caster(), time, 0.0), spawns)
+  spawns = Cons(PendingSpawn(team, Caster(), time, 6.0), spawns)
   
   spawns
 }
@@ -102,7 +103,9 @@ def processPendingSpawns(pending: List[PendingSpawn], minions: List[Minion],
         case Blue() => BLUE_SPAWN_X
         case Red() => RED_SPAWN_X
       }
-      val spawnPos = Vec2(spawnX, LANE_Y) 
+      // Nutze laneOffset für vertikale Streuung beim Spawn
+      val spawnY = clamp(LANE_Y + spawn.laneOffset, LANE_MIN_Y + 15.0, LANE_MAX_Y - 15.0)
+      val spawnPos = Vec2(spawnX, spawnY)
       
       val minion = createMinion(currentNextId, spawn.team, spawn.minionType, spawnPos, currentTime)
       currentNextId = currentNextId + 1

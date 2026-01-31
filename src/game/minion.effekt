@@ -109,13 +109,62 @@ def calculateSeparation(minion: Minion, allMinions: List[Minion]): Vec2 = {
   }
 }
 
+
+val BOUNDARY_PADDING: Double = 8.0
+
 /**
- * Move minion towards target position with separation.
+ * Clamp position to stay within lane boundaries with padding.
+ * Uses soft padding to prevent minions from sticking to edges.
+ * @param pos - Position to clamp
+ * @return Position clamped to lane boundaries
+ */
+def clampToLaneBoundaries(pos: Vec2): Vec2 = {
+  val clampedX = clamp(pos.x, LANE_START_X + BOUNDARY_PADDING, LANE_END_X - BOUNDARY_PADDING)
+  val clampedY = clamp(pos.y, LANE_MIN_Y + BOUNDARY_PADDING, LANE_MAX_Y - BOUNDARY_PADDING)
+  Vec2(clampedX, clampedY)
+}
+
+/**
+ * Calculate a boundary repulsion force to push minions away from edges.
+ * This prevents minions from getting stuck at boundaries.
+ * @param pos - Current position
+ * @return Repulsion force vector
+ */
+def calculateBoundaryRepulsion(pos: Vec2): Vec2 = {
+  val repelDistance = 25.0  // Start pushing when this close to edge
+  val repelStrength = 80.0  // How strong the push is
+  
+  var forceX = 0.0
+  var forceY = 0.0
+  
+  val distToLeft = pos.x - LANE_START_X
+  val distToRight = LANE_END_X - pos.x
+  val distToTop = pos.y - LANE_MIN_Y
+  val distToBottom = LANE_MAX_Y - pos.y
+  
+  if (distToLeft < repelDistance && distToLeft > 0.0) {
+    forceX = repelStrength * (1.0 - distToLeft / repelDistance)
+  }
+  if (distToRight < repelDistance && distToRight > 0.0) {
+    forceX = 0.0 - repelStrength * (1.0 - distToRight / repelDistance)
+  }
+  if (distToTop < repelDistance && distToTop > 0.0) {
+    forceY = repelStrength * (1.0 - distToTop / repelDistance)
+  }
+  if (distToBottom < repelDistance && distToBottom > 0.0) {
+    forceY = 0.0 - repelStrength * (1.0 - distToBottom / repelDistance)
+  }
+  
+  Vec2(forceX, forceY)
+}
+
+/**
+ * Move minion towards target position with separation, boundary repulsion and clamping.
  * @param minion - The minion to move
  * @param targetPos - Target position
  * @param deltaTime - Time delta
  * @param allMinions - All minions for collision avoidance
- * @return New position
+ * @return New position clamped to lane boundaries
  */
 def moveTowards(minion: Minion, targetPos: Vec2, deltaTime: Double, allMinions: List[Minion]): Vec2 = {
   val dirToTarget = sub(targetPos, minion.position)
@@ -129,10 +178,14 @@ def moveTowards(minion: Minion, targetPos: Vec2, deltaTime: Double, allMinions: 
   
   val separationForce = calculateSeparation(minion, allMinions)
   
-  val combinedVelocity = add(seekVelocity, separationForce)
+  val boundaryForce = calculateBoundaryRepulsion(minion.position)
+  
+  val combinedVelocity = add(add(seekVelocity, separationForce), boundaryForce)
   
   val movement = scale(combinedVelocity, deltaTime)
-  add(minion.position, movement)
+  val newPos = add(minion.position, movement)
+  
+  clampToLaneBoundaries(newPos)
 }
 
 /**
@@ -148,8 +201,9 @@ def pseudoRandom(seed: Int): Double = {
 
 /**
  * Get the goal position for a minion when no enemies are present.
+ * Goal is clamped to lane boundaries.
  * @param minion - The minion
- * @return Goal position
+ * @return Goal position within lane boundaries
  */
 def getGoalPosition(minion: Minion): Vec2 = {
   val goalX = minion.team match {
@@ -157,9 +211,10 @@ def getGoalPosition(minion: Minion): Vec2 = {
     case Red() => LANE_START_X
   }
   
-  val spread = (pseudoRandom(minion.id) - 0.5) * 60.0
+  val spread = (pseudoRandom(minion.id) - 0.5) * 80.0
+  val targetY = clamp(LANE_Y + spread, LANE_MIN_Y + 10.0, LANE_MAX_Y - 10.0)
   
-  Vec2(goalX, LANE_Y + spread)
+  Vec2(goalX, targetY)
 }
 
 /**
@@ -186,7 +241,6 @@ def isTargetValid(minion: Minion, targetId: Int, allMinions: List[Minion]): Bool
     case Some(t) =>
       if (not(t.isAlive)) false
       else {
-        // Check if it's an enemy
         minion.team match {
           case Blue() => t.team match {
             case Blue() => false
@@ -201,8 +255,6 @@ def isTargetValid(minion: Minion, targetId: Int, allMinions: List[Minion]): Bool
   }
 }
 
-
-// Update a single minion's state for one frame
 def updateMinion(minion: Minion, allMinions: List[Minion], 
                  blueTurret: Turret, redTurret: Turret,
                  deltaTime: Double, currentTime: Double,
@@ -210,21 +262,18 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
   if (not(minion.isAlive)) {
     minion
   } else {
-    // Tanking Logic
     val tankTargetId = -2
     val tankAggroRange = 400.0
-    val tankAttackRange = 30.0 // Minions need to get close to "attack" the tank
+    val tankAttackRange = 30.0
     
-    // Check if should target tank
     val shouldTargetTank = isTanking && 
                            distance(minion.position, tankPos) <= tankAggroRange
     
-    // Determine effective target
     val currentTarget = if (shouldTargetTank) {
-      if (minion.targetId == tankTargetId) tankTargetId // Already targeting tank
-      else tankTargetId // Switch to tank
+      if (minion.targetId == tankTargetId) tankTargetId
+      else tankTargetId
     } else {
-      if (minion.targetId == tankTargetId) -1 // Stop targeting tank
+      if (minion.targetId == tankTargetId) -1
       else if (minion.targetId >= 0 && isTargetValid(minion, minion.targetId, allMinions)) {
         // We have a valid target. 
         // Check if we should stick to it.
@@ -233,22 +282,19 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
         findMinionById(allMinions, minion.targetId) match {
           case Some(target) =>
             if (isInAttackRange(minion, target.position)) {
-               minion.targetId // Keep locked
+               minion.targetId  
             } else {
-               findNearestEnemy(minion, allMinions) // Re-scan for closest
+               findNearestEnemy(minion, allMinions)
             }
-          case None() => findNearestEnemy(minion, allMinions) // Should not happen given check above
+          case None() => findNearestEnemy(minion, allMinions)
         }
       } else {
         findNearestEnemy(minion, allMinions)
       }
     }
     
-    // Act on target
     if (currentTarget == tankTargetId) {
-       // Move towards tank
        if (distance(minion.position, tankPos) <= tankAttackRange) {
-         // "Attack" tank (just wait/reset cooldown)
          if (canAttack(minion, currentTime)) {
            Minion(
              minion.id, minion.team, minion.minionType, minion.position,
@@ -268,26 +314,21 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
          )
        }
     } else if (currentTarget >= 0) {
-      // Normal minion behavior (existing logic)
       
-      // Get enemy turret (needed if we lose minion target)
       val enemyTurret = minion.team match {
         case Blue() => redTurret
         case Red() => blueTurret
       }
 
-      // We have an enemy minion target
       val targetOpt = findMinionById(allMinions, currentTarget)
       targetOpt match {
         case None() =>
-          // Target disappeared, find new one logic handled next frame or fallback
            Minion(
             minion.id, minion.team, minion.minionType, minion.position,
             minion.currentHp, minion.stats, -1, minion.lastAttackTime, minion.isAlive
           )
         case Some(target) =>
           if (isInAttackRange(minion, target.position)) {
-            // In range - attack if cooldown is ready
             if (canAttack(minion, currentTime)) {
               Minion(
                 minion.id,
@@ -301,7 +342,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
                 minion.isAlive
               )
             } else {
-              // Waiting for cooldown
               Minion(
                 minion.id,
                 minion.team,
@@ -315,7 +355,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
               )
             }
           } else {
-            // Move towards target
             val newPos = moveTowards(minion, target.position, deltaTime, allMinions)
             Minion(
               minion.id,
@@ -331,7 +370,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
           }
       }
     } else {
-      // No minion target - check turret
       val enemyTurret = minion.team match {
         case Blue() => redTurret
         case Red() => blueTurret
@@ -339,7 +377,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
       
       if (enemyTurret.isAlive) {
         if (isInAttackRange(minion, enemyTurret.position)) {
-          // Attack turret
           if (canAttack(minion, currentTime)) {
             Minion(
               minion.id, minion.team, minion.minionType, minion.position,
@@ -347,7 +384,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
             )
           } else minion
         } else {
-          // Move towards turret
           val newPos = moveTowards(minion, enemyTurret.position, deltaTime, allMinions)
           Minion(
             minion.id, minion.team, minion.minionType, newPos,
@@ -355,7 +391,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
           )
         }
       } else {
-        // No turret - move towards goal
         val goal = getGoalPosition(minion)
         val newPos = moveTowards(minion, goal, deltaTime, allMinions)
         Minion(
@@ -367,7 +402,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
   }
 }
 
-// Update all minions
 def updateAllMinions(minions: List[Minion], blueTurret: Turret, redTurret: Turret,
                      deltaTime: Double, currentTime: Double,
                      isTanking: Bool, tankPos: Vec2): List[Minion] = {

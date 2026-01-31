@@ -131,18 +131,47 @@ extern js """
 // ============ RENDERING (all in Effekt) ============
 
 def drawBackground(): Unit = {
+  // Dark background
   setFillColor(30, 35, 40, 1.0)
   fillRect(0.0, 0.0, CANVAS_WIDTH.toDouble, CANVAS_HEIGHT.toDouble)
   
-  setFillColor(45, 55, 45, 1.0)
-  fillRect(LANE_START_X, LANE_Y - 60.0, LANE_END_X - LANE_START_X, 120.0)
+  // Gesamte Lane - äußerer Bereich (Gras)
+  setFillColor(35, 50, 35, 1.0)
+  fillRect(LANE_START_X, LANE_MIN_Y, LANE_END_X - LANE_START_X, LANE_HEIGHT)
   
-  setFillColor(70, 65, 55, 1.0)
-  fillRect(LANE_START_X, LANE_Y - 35.0, LANE_END_X - LANE_START_X, 70.0)
+  // Spawn-Zonen hinter den Türmen - leicht blau/rot gefärbt
+  // Blaue Spawn-Zone (links hinter blauem Turm)
+  setFillColor(30, 50, 70, 0.6)
+  fillRect(LANE_START_X, LANE_MIN_Y, BLUE_TURRET_X - LANE_START_X, LANE_HEIGHT)
   
-  setStrokeColor(255, 255, 255, 0.15)
+  // Rote Spawn-Zone (rechts hinter rotem Turm)
+  setFillColor(70, 40, 40, 0.6)
+  fillRect(RED_TURRET_X, LANE_MIN_Y, LANE_END_X - RED_TURRET_X, LANE_HEIGHT)
+  
+  // Haupt-Lane-Bereich zwischen den Türmen (Kampfzone)
+  val innerPadding = 25.0
+  setFillColor(55, 50, 40, 1.0)
+  fillRect(BLUE_TURRET_X, LANE_MIN_Y + innerPadding, RED_TURRET_X - BLUE_TURRET_X, LANE_HEIGHT - innerPadding * 2.0)
+  
+  // Mittellinie
+  setStrokeColor(255, 255, 255, 0.12)
   setLineWidth(1.0)
   drawLine(LANE_START_X, LANE_Y, LANE_END_X, LANE_Y)
+  
+  // Turm-Linien (wo die Türme stehen)
+  setStrokeColor(100, 100, 200, 0.4)
+  setLineWidth(2.0)
+  drawLine(BLUE_TURRET_X, LANE_MIN_Y, BLUE_TURRET_X, LANE_MAX_Y)
+  setStrokeColor(200, 100, 100, 0.4)
+  drawLine(RED_TURRET_X, LANE_MIN_Y, RED_TURRET_X, LANE_MAX_Y)
+  
+  // Lane Boundaries - Sichtbare Begrenzungen
+  setStrokeColor(200, 100, 50, 0.7)
+  setLineWidth(3.0)
+  drawLine(LANE_START_X, LANE_MIN_Y, LANE_END_X, LANE_MIN_Y)  // Obere Grenze
+  drawLine(LANE_START_X, LANE_MAX_Y, LANE_END_X, LANE_MAX_Y)  // Untere Grenze
+  drawLine(LANE_START_X, LANE_MIN_Y, LANE_START_X, LANE_MAX_Y)  // Linke Grenze
+  drawLine(LANE_END_X, LANE_MIN_Y, LANE_END_X, LANE_MAX_Y)      // Rechte Grenze
 }
 
 def drawTurretEntity(turret: Turret): Unit = {
