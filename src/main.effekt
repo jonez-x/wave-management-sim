@@ -461,6 +461,70 @@ def drawVisualEffects(effects: List[VisualEffect], currentTime: Double): Unit = 
   }
 }
 
+/**
+ * Draw tank indicator when tanking is active.
+ * Shows a shield icon with pulsing aggro range.
+ */
+def drawTankIndicator(state: GameState): Unit = {
+  if (state.isPlayerTanking) {
+    val x = state.tankPosition.x
+    val y = state.tankPosition.y
+    val aggroRange = 400.0  // Same as tankAggroRange in minion.effekt
+    
+    // Pulsing effect based on game time
+    val pulse = 0.8 + 0.2 * modDouble(state.gameTime * 3.0, 1.0)
+    
+    // Aggro range circle (pulsing)
+    setStrokeColor(50, 255, 100, 0.3 * pulse)
+    setLineWidth(2.0)
+    strokeCircle(x, y, aggroRange)
+    
+    // Inner glow
+    setFillColor(50, 255, 100, 0.15 * pulse)
+    fillCircle(x, y, 35.0)
+    
+    // Shield shape - draw as polygon lines
+    // Top curved part
+    setFillColor(30, 180, 80, 0.95)
+    setStrokeColor(50, 255, 100, 1.0)
+    setLineWidth(3.0)
+    
+    // Shield body (approximated with lines forming a shield shape)
+    // Top left corner
+    drawLine(x - 15.0, y - 18.0, x - 18.0, y - 5.0)
+    // Left side going down
+    drawLine(x - 18.0, y - 5.0, x - 12.0, y + 12.0)
+    // Bottom left to center point
+    drawLine(x - 12.0, y + 12.0, x, y + 22.0)
+    // Bottom center to right
+    drawLine(x, y + 22.0, x + 12.0, y + 12.0)
+    // Right side going up
+    drawLine(x + 12.0, y + 12.0, x + 18.0, y - 5.0)
+    // Top right corner
+    drawLine(x + 18.0, y - 5.0, x + 15.0, y - 18.0)
+    // Top edge
+    drawLine(x + 15.0, y - 18.0, x - 15.0, y - 18.0)
+    
+    // Fill shield center
+    setFillColor(40, 200, 100, 0.9)
+    fillCircle(x, y, 12.0)
+    
+    // Shield emblem (star/diamond in center)
+    setFillColor(255, 255, 255, 0.9)
+    // Diamond shape
+    drawLine(x, y - 8.0, x + 6.0, y)
+    drawLine(x + 6.0, y, x, y + 8.0)
+    drawLine(x, y + 8.0, x - 6.0, y)
+    drawLine(x - 6.0, y, x, y - 8.0)
+    
+    // "TANKING" text above
+    setFont("bold 12px Arial")
+    setFillColor(50, 255, 100, 1.0)
+    setTextAlign("center")
+    fillText("TANKING", x, y - 35.0)
+  }
+}
+
 def renderGame(state: GameState): Unit = {
   clearCanvas()
   drawBackground()
@@ -471,6 +535,9 @@ def renderGame(state: GameState): Unit = {
   listForEach(state.projectiles) { p =>
     drawProjectileEntity(p)
   }
+  
+  // Draw tank indicator if active
+  drawTankIndicator(state)
   
   drawVisualEffects(state.visualEffects, state.gameTime)
   
