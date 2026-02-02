@@ -105,14 +105,10 @@ def processFrameImpl(): Unit = {
   val dt = getDeltaTime()
   val state = loadState()
   
-  // We use withMockState here effectively as a "Transient State Handler"
-  val (_, finalState) = withMockState(state) {
+  val (_, finalState) = withTransientState(state) {
      withCanvasRenderer {
        withBrowserInput {
-         // simulationStep and gameLoopStep require the Time effect
          withTime(state.gameTime, state.speed) {
-            
-            // 2. Run the main simulation loop (Keyboard Input + Logic + Render)
             gameLoopStep(dt)
          }
        }
@@ -128,22 +124,14 @@ def main(): Unit = {
   initCanvas(canvasId, CANVAS_WIDTH, CANVAS_HEIGHT)
   initEvents(canvasId)
     
-  // Check if we already have a state (hot reload) or valid state? 
-  // For now always re-init on main() call usually means page reload.
-  val initial = createInitialState()
-  
-  val state = GameState(
-    initial.minions, initial.blueTurret, initial.redTurret, 0.0, 0, initial.nextSpawnTime,
-    false, Speed1x(), NoTool(), initial.nextEntityId, Neutral(), false, Vec2(0.0, 0.0), Nil(), Nil(), Nil()
-  )
+  val state = createInitialState()
       
   saveState(state)
   
   // Initial Render
-  val (_, _) = withMockState(state) {
+  val (_, _) = withTransientState(state) {
       withCanvasRenderer {
         withMockInput(Vec2(0.0,0.0), false, Nil()) {
-           // Reuse the render function from simulation
            renderGame()
         }
       }

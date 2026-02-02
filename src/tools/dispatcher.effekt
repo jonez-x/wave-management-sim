@@ -18,32 +18,27 @@ import src/tools/tank
 def handleToolClick(tool: Tool, clickPos: Vec2): Unit / State = {
   tool match {
     case LastHitTool() => applyLastHit(clickPos)
-    
-    case AoETool() => 
+
+    case AoETool() =>
       applyAoE(clickPos, AOE_RADIUS, AOE_DAMAGE, false)
-      
+
     case KillCastersTool() =>
-      if (clickPos.x < 600.0) {
+      if (clickPos.x < LANE_CENTER_X) {
         killCasters(clickPos, Blue())
       } else {
         killCasters(clickPos, Red())
       }
-      
+
     case FullClearTool() =>
-      if (clickPos.x < 600.0) {
+      if (clickPos.x < LANE_CENTER_X) {
         fullClear(clickPos, FULL_CLEAR_RANGE, Blue())
       } else {
         fullClear(clickPos, FULL_CLEAR_RANGE, Red())
       }
-      
+
     case TankTool() =>
-      val state = do getState()
-      if (state.isPlayerTanking) {
-        activateTank(clickPos)
-      } else {
-        activateTank(clickPos)
-      }
-      
+      activateTank(clickPos)
+
     case NoTool() => ()
   }
 }

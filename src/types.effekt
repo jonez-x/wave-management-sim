@@ -299,7 +299,7 @@ val LASTHIT_THRESHOLD: Double = 50.0
 val EFFECT_DURATION: Double = 0.4
 
 /** Width of the game canvas. */
-val CANVAS_WIDTH: Int = 1200
+val CANVAS_WIDTH: Int = 1700
 
 /** Height of the game canvas. */
 val CANVAS_HEIGHT: Int = 400
@@ -311,7 +311,7 @@ val LANE_Y: Double = 200.0
 val LANE_START_X: Double = 10.0
 
 /** Ending X coordinate of the lane (right side). */
-val LANE_END_X: Double = 1190.0
+val LANE_END_X: Double = 1690.0
 
 /** Top vertical boundary of the lane. */
 val LANE_MIN_Y: Double = 100.0
@@ -326,7 +326,7 @@ val LANE_HEIGHT: Double = 200.0
 val BLUE_SPAWN_X: Double = 60.0
 
 /** Spawn X coordinate for Red team minions. */
-val RED_SPAWN_X: Double = 1140.0
+val RED_SPAWN_X: Double = 1640.0
 
 /** Time interval between minion waves in seconds. */
 val SPAWN_INTERVAL: Double = 30.0
@@ -338,4 +338,34 @@ val CANNON_WAVE_INTERVAL: Int = 3
 val BLUE_TURRET_X: Double = 150.0
 
 /** X position of the Red turret. */
-val RED_TURRET_X: Double = 1050.0
+val RED_TURRET_X: Double = 1550.0
+
+/** Aggro range for the Tank tool. */
+val TANK_AGGRO_RANGE: Double = 400.0
+
+/** Attack range for minions targeting the tank point. */
+val TANK_ATTACK_RANGE: Double = 30.0
+
+/** Sentinel target ID representing the tank aggro point. */
+val TANK_TARGET_ID: Int = -2
+
+/** Projectile speed for turret shots. */
+val TURRET_PROJECTILE_SPEED: Double = 600.0
+
+/** Projectile speed for caster minion attacks. */
+val CASTER_PROJECTILE_SPEED: Double = 450.0
+
+/** Projectile speed for cannon minion attacks. */
+val CANNON_PROJECTILE_SPEED: Double = 350.0
+
+/** Click radius for the Last Hit tool. */
+val LASTHIT_CLICK_RADIUS: Double = 30.0
+
+/** Range for the Kill Casters tool. */
+val KILL_CASTERS_RANGE: Double = 200.0
+
+/** X coordinate of the lane center used for team-side detection. */
+val LANE_CENTER_X: Double = 600.0
+
+/** Visual radius of the Tank indicator. */
+val TANK_INDICATOR_RADIUS: Double = 25.0

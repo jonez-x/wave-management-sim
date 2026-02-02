@@ -26,12 +26,12 @@ def withState[R](initial: GameState) { prog: => R / State }: R = {
 }
 
 /**
- * Handles the State effect for testing, returning the final state.
+ * Handles the State effect, returning the final state alongside the result.
  * @param initial The initial game state
  * @param prog The program to run
  * @return A tuple of the result and the final state
  */
-def withMockState[R](initial: GameState) { prog: => R / State }: (R, GameState) = {
+def withTransientState[R](initial: GameState) { prog: => R / State }: (R, GameState) = {
   var current = initial
   val result = try { prog() } with State {
     def getState() = resume(current)
@@ -323,10 +323,10 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
         }
         case TankTool() => {
           setFillColor(50, 255, 100, 0.3)
-          fillCircle(mousePos.x, mousePos.y, 25.0)
+          fillCircle(mousePos.x, mousePos.y, TANK_INDICATOR_RADIUS)
           setStrokeColor(50, 255, 100, 0.8)
           setLineWidth(2.0)
-          strokeCircle(mousePos.x, mousePos.y, 25.0)
+          strokeCircle(mousePos.x, mousePos.y, TANK_INDICATOR_RADIUS)
         }
         case _ => ()
       }
@@ -336,23 +336,29 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
     def drawAttackLine(from, to, team) = {
       val centerX = to.x
       val centerY = to.y
-      
+
+      team match {
+        case Blue() => setStrokeColor(200, 220, 255, 0.4)
+        case Red() => setStrokeColor(255, 200, 200, 0.4)
+      }
+      setLineWidth(2.0)
+      drawLine(from.x, from.y, centerX, centerY)
+
       team match {
         case Blue() => setStrokeColor(200, 220, 255, 0.9)
         case Red() => setStrokeColor(255, 200, 200, 0.9)
       }
-      setLineWidth(2.0)
-      
+
       drawLine(centerX - 10.0, centerY - 10.0, centerX + 10.0, centerY + 10.0)
       drawLine(centerX - 8.0, centerY - 8.0, centerX + 8.0, centerY + 8.0)
       drawLine(centerX - 4.0, centerY + 4.0, centerX + 4.0, centerY - 4.0)
-      
+
       team match {
         case Blue() => setFillColor(100, 180, 255, 0.5)
         case Red() => setFillColor(255, 100, 100, 0.5)
       }
       fillCircle(centerX, centerY, 15.0)
-      
+
       resume(())
     }
     
@@ -433,7 +439,7 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
           drawLine(vfx.position.x + size, vfx.position.y - size, vfx.position.x - size, vfx.position.y + size)
           
         case TankActivation() =>
-          val expandedRadius = 25.0 * (1.0 + progress * 0.5)
+          val expandedRadius = TANK_INDICATOR_RADIUS * (1.0 + progress * 0.5)
           setStrokeColor(50, 255, 100, alpha * 0.8)
           setLineWidth(3.0)
           strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
@@ -447,16 +453,15 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
       if (isTanking) {
         val x = position.x
         val y = position.y
-        val aggroRange = 400.0
-        
+
         val pulse = 0.8 + 0.2 * modDouble(gameTime * 3.0, 1.0)
-        
+
         setStrokeColor(50, 255, 100, 0.3 * pulse)
         setLineWidth(2.0)
-        strokeCircle(x, y, aggroRange)
-        
+        strokeCircle(x, y, TANK_AGGRO_RANGE)
+
         setFillColor(50, 255, 100, 0.15 * pulse)
-        fillCircle(x, y, 35.0)
+        fillCircle(x, y, TANK_INDICATOR_RADIUS + 10.0)
         
         setFillColor(30, 180, 80, 0.95)
         setStrokeColor(50, 255, 100, 1.0)

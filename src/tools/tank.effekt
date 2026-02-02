@@ -18,7 +18,7 @@ def activateTank(pos: Vec2): Unit / State = {
   val effectId = getNextEntityId()
   val vfx = VisualEffect(
     effectId, TankActivation(), pos,
-    state.gameTime, EFFECT_DURATION, 25.0
+    state.gameTime, EFFECT_DURATION, TANK_INDICATOR_RADIUS
   )
   addVisualEffect(vfx)
 }

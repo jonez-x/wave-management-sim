@@ -295,7 +295,7 @@ def setNextSpawnTime(time: Double): Unit / State = {
 
 /**
  * Updates the displayed wave state.
- * @param newWaveState - The new calculated wave equlibrium
+ * @param newWaveState - The new calculated wave equilibrium
  */
 def setWaveState(newWaveState: WaveState): Unit / State = {
   val state = do getState()

@@ -5,7 +5,7 @@ import src/utils/math
 import src/utils/lists
 import src/effects
 import src/game/minion
-import src/handlers
+import src/utils/game
 import src/helpers
 
 /**
@@ -24,9 +24,9 @@ def isCannonWave(waveNumber: Int): Bool = {
  * @param StartTime - Time to start spawning
  * @return List of PendingSpawn
  */
-def scheduleTeamWave(team: Team, waveNumber: Int, StartTime: Double): List[PendingSpawn] = {
+def scheduleTeamWave(team: Team, waveNumber: Int, startTime: Double): List[PendingSpawn] = {
   var spawns: List[PendingSpawn] = Nil()
-  var time = StartTime
+  var time = startTime
   val interval = 0.8
   
   spawns = Cons(PendingSpawn(team, Melee(), time, -8.0), spawns)
@@ -142,55 +142,15 @@ def getWaveSize(waveNumber: Int): Int = {
 def getTeamAverageX(minions: List[Minion], team: Team): Double = {
   var sumX = 0.0
   var count = 0
-  
-  listForEach(minions) { m =>
-    if (m.isAlive) {
-      val isMatch = team match {
-        case Blue() => m.team match {
-          case Blue() => true
-          case Red() => false
-        }
-        case Red() => m.team match {
-          case Blue() => false
-          case Red() => true
-        }
-      }
-      if (isMatch) {
-        sumX = sumX + m.position.x
-        count = count + 1
-      }
-    }
-  }
-  
-  if (count > 0) sumX / intToDouble(count) else -1.0
-}
 
-/**
- * Count alive minions for a team.
- * @param minions - List of minions
- * @param team - The team to count
- * @return Number of alive minions
- */
-def countTeamAliveMinions(minions: List[Minion], team: Team): Int = {
-  var count = 0
   listForEach(minions) { m =>
-    if (m.isAlive) {
-      val isMatch = team match {
-        case Blue() => m.team match {
-          case Blue() => true
-          case Red() => false
-        }
-        case Red() => m.team match {
-          case Blue() => false
-          case Red() => true
-        }
-      }
-      if (isMatch) {
-        count = count + 1
-      }
+    if (m.isAlive && sameTeam(m.team, team)) {
+      sumX = sumX + m.position.x
+      count = count + 1
     }
   }
-  count
+
+  if (count > 0) sumX / intToDouble(count) else -1.0
 }
 
 /**
@@ -201,8 +161,8 @@ def countTeamAliveMinions(minions: List[Minion], team: Team): Int = {
  * @return The calculated WaveState
  */
 def calculateWaveState(minions: List[Minion], blueTurretX: Double, redTurretX: Double): WaveState = {
-  val blueCount = countTeamAliveMinions(minions, Blue())
-  val redCount = countTeamAliveMinions(minions, Red())
+  val blueCount = countTeamMinions(minions, Blue())
+  val redCount = countTeamMinions(minions, Red())
   
   if (blueCount == 0 && redCount == 0) {
     Neutral()

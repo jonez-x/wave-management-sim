@@ -122,7 +122,7 @@ def absDouble(x: Double): Double =
 /**
  * Calculates the floor of a double.
  * @param x - Input value
- * @return Integar part as double
+ * @return Integer part as double
  */
 def floorDouble(x: Double): Double = {
   val i = x.toInt

@@ -3,6 +3,7 @@ module src/tools/clear
 import src/types
 import src/utils/math
 import src/utils/lists
+import src/utils/game
 import src/effects
 
 /**
@@ -15,16 +16,12 @@ import src/effects
  */
 def killCasters(clickPos: Vec2, targetTeam: Team): Unit / State = {
   val state = do getState()
-  val range = 200.0
-  
+
   val newMinions = listMap(state.minions) { m =>
-    val isTarget = m.isAlive && 
-                   (m.team match {
-                     case Blue() => targetTeam match { case Blue() => true case Red() => false }
-                     case Red() => targetTeam match { case Blue() => false case Red() => true }
-                   }) && 
+    val isTarget = m.isAlive &&
+                   sameTeam(m.team, targetTeam) &&
                    (m.minionType match { case Caster() => true case _ => false }) &&
-                   distance(clickPos, m.position) <= range
+                   distance(clickPos, m.position) <= KILL_CASTERS_RANGE
                    
     if (isTarget) {
       Minion(
@@ -41,7 +38,7 @@ def killCasters(clickPos: Vec2, targetTeam: Team): Unit / State = {
   val effectId = getNextEntityId()
   val vfx = VisualEffect(
     effectId, KillMarker(), clickPos,
-    state.gameTime, EFFECT_DURATION, range
+    state.gameTime, EFFECT_DURATION, KILL_CASTERS_RANGE
   )
   addVisualEffect(vfx)
 }
@@ -59,11 +56,8 @@ def fullClear(centerPos: Vec2, range: Double, targetTeam: Team): Unit / State = 
   val state = do getState()
   
   val newMinions = listMap(state.minions) { m =>
-    val isTarget = m.isAlive && 
-                   (m.team match {
-                     case Blue() => targetTeam match { case Blue() => true case Red() => false }
-                     case Red() => targetTeam match { case Blue() => false case Red() => true }
-                   }) && 
+    val isTarget = m.isAlive &&
+                   sameTeam(m.team, targetTeam) &&
                    distance(centerPos, m.position) <= range
                    
     if (isTarget) {

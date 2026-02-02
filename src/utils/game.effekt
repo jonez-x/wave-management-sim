@@ -15,6 +15,33 @@ def opposite(team: Team): Team =
   }
 
 /**
+ * Checks if two teams are the same.
+ * @param t1 - First team
+ * @param t2 - Second team
+ * @return True if both teams are the same
+ */
+def sameTeam(t1: Team, t2: Team): Bool =
+  t1 match {
+    case Blue() => t2 match {
+      case Blue() => true
+      case Red() => false
+    }
+    case Red() => t2 match {
+      case Blue() => false
+      case Red() => true
+    }
+  }
+
+/**
+ * Checks if two teams are opponents.
+ * @param t1 - First team
+ * @param t2 - Second team
+ * @return True if the teams are different
+ */
+def isEnemy(t1: Team, t2: Team): Bool =
+  not(sameTeam(t1, t2))
+
+/**
  * Returns the name of the team as a string.
  * @param team - The team
  * @return "Blue" or "Red"

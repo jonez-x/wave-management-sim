@@ -14,7 +14,7 @@ import src/effects
  */
 def applyLastHit(clickPos: Vec2): Unit / State = {
   val threshold = LASTHIT_THRESHOLD
-  val clickRadius = 30.0
+  val clickRadius = LASTHIT_CLICK_RADIUS
   
   val state = do getState()
   

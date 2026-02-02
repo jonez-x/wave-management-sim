@@ -1,6 +1,7 @@
 module src/helpers
 
 import src/types
+import src/utils/game
 
 /**
  * Helper function to count minions alive in a specific team.
@@ -12,18 +13,7 @@ def countTeamMinions(minions: List[Minion], team: Team): Int = {
   minions match {
     case Nil() => 0
     case Cons(m, rest) =>
-      val count = if (m.isAlive) {
-        m.team match {
-          case Blue() => team match {
-            case Blue() => 1
-            case Red() => 0
-          }
-          case Red() => team match {
-            case Blue() => 0
-            case Red() => 1
-          }
-        }
-      } else { 0 }
+      val count = if (m.isAlive && sameTeam(m.team, team)) 1 else 0
       count + countTeamMinions(rest, team)
   }
 }

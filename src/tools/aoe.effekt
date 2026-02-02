@@ -23,23 +23,20 @@ def applyAoE(centerPos: Vec2, radius: Double, damage: Double, lethal: Bool): Uni
     if (m.isAlive && distance(centerPos, m.position) <= radius) {
       val potentialHp = m.currentHp - damage
       
-      if (lethal || potentialHp > 0.0) {
-        if (potentialHp <= 0.0) {
-             Minion(
-                m.id, m.team, m.minionType, m.position, 
-                0.0, m.stats, m.targetId, m.lastAttackTime, false
-              )
-        } else {
-             Minion(
-                m.id, m.team, m.minionType, m.position, 
-                potentialHp, m.stats, m.targetId, m.lastAttackTime, m.isAlive
-              )
-        }
-      } else {
-        val safeHp = maxDouble(1.0, potentialHp)
+      if (potentialHp > 0.0) {
         Minion(
-            m.id, m.team, m.minionType, m.position, 
-            safeHp, m.stats, m.targetId, m.lastAttackTime, m.isAlive
+          m.id, m.team, m.minionType, m.position,
+          potentialHp, m.stats, m.targetId, m.lastAttackTime, m.isAlive
+        )
+      } else if (lethal) {
+        Minion(
+          m.id, m.team, m.minionType, m.position,
+          0.0, m.stats, m.targetId, m.lastAttackTime, false
+        )
+      } else {
+        Minion(
+          m.id, m.team, m.minionType, m.position,
+          1.0, m.stats, m.targetId, m.lastAttackTime, m.isAlive
         )
       }
     } else {
