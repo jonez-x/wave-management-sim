@@ -1,9 +1,17 @@
 module src/test
-
 import test
 import src/types
 import src/effects
 import src/handlers
+import src/utils/math
+import src/utils/lists
+import src/utils/game
+import src/game/minion
+import src/game/turret
+import src/game/wave
+import src/game/state
+import src/tools/dispatcher
+import src/tools/utils
 
 def main() = mainSuite("Wave Management Simulator Tests") {
   

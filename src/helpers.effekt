@@ -1,0 +1,61 @@
+module src/helpers
+
+import src/types
+
+/**
+ * Helper function to count minions alive in a specific team.
+ * @param minions The list of minions to check
+ * @param team The team to count minions for
+ * @return The count of alive minions in the team
+ */
+def countTeamMinions(minions: List[Minion], team: Team): Int = {
+  minions match {
+    case Nil() => 0
+    case Cons(m, rest) =>
+      val count = if (m.isAlive) {
+        m.team match {
+          case Blue() => team match {
+            case Blue() => 1
+            case Red() => 0
+          }
+          case Red() => team match {
+            case Blue() => 0
+            case Red() => 1
+          }
+        }
+      } else { 0 }
+      count + countTeamMinions(rest, team)
+  }
+}
+
+/**
+ * Helper function to check if a list contains a specific string.
+ * @param lst The list to search
+ * @param item The item to find
+ * @return True if the item is found, false otherwise
+ */
+def listContainsString(lst: List[String], item: String): Bool = {
+  lst match {
+    case Nil() => false
+    case Cons(head, tail) => 
+      if (head == item) true 
+      else listContainsString(tail, item)
+  }
+}
+
+/**
+ * Converts an Int to a Double.
+ * @param x The integer value to convert
+ * @return The double value
+ */
+extern def intToDouble(x: Int): Double =
+  js "(${x})"
+
+/**
+ * Calculates the modulo of two integers.
+ * @param x The dividend
+ * @param y The divisor
+ * @return The remainder
+ */
+extern def modulo(x: Int, y: Int): Int =
+  js "(${x}) % (${y})"

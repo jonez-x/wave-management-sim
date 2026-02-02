@@ -1,8 +1,12 @@
 module src/game/wave
 
 import src/types
+import src/utils/math
+import src/utils/lists
 import src/effects
+import src/game/minion
 import src/handlers
+import src/helpers
 
 /**
  * Check if this wave should have a cannon minion.
@@ -25,7 +29,6 @@ def scheduleTeamWave(team: Team, waveNumber: Int, StartTime: Double): List[Pendi
   var time = StartTime
   val interval = 0.8
   
-  // 3 Melee minions - minimale Streuung
   spawns = Cons(PendingSpawn(team, Melee(), time, -8.0), spawns)
   time = time + interval
   spawns = Cons(PendingSpawn(team, Melee(), time, 0.0), spawns)
@@ -33,13 +36,11 @@ def scheduleTeamWave(team: Team, waveNumber: Int, StartTime: Double): List[Pendi
   spawns = Cons(PendingSpawn(team, Melee(), time, 8.0), spawns)
   time = time + interval
   
-  // Cannon minion (if applicable)
   if (isCannonWave(waveNumber)) {
     spawns = Cons(PendingSpawn(team, Cannon(), time, 0.0), spawns)
     time = time + interval
   }
   
-  // Caster minions - minimale Streuung
   spawns = Cons(PendingSpawn(team, Caster(), time, -6.0), spawns)
   time = time + interval
   spawns = Cons(PendingSpawn(team, Caster(), time, 0.0), spawns)
@@ -103,7 +104,6 @@ def processPendingSpawns(pending: List[PendingSpawn], minions: List[Minion],
         case Blue() => BLUE_SPAWN_X
         case Red() => RED_SPAWN_X
       }
-      // Nutze laneOffset für vertikale Streuung beim Spawn
       val spawnY = clamp(LANE_Y + spawn.laneOffset, LANE_MIN_Y + 15.0, LANE_MAX_Y - 15.0)
       val spawnPos = Vec2(spawnX, spawnY)
       
@@ -130,5 +130,138 @@ def getWaveSize(waveNumber: Int): Int = {
     base + 1
   } else {
     base
+  }
+}
+
+/**
+ * Calculate the average X position of all alive minions for a team.
+ * @param minions - List of minions
+ * @param team - The team to calculate for
+ * @return Average X position, or -1.0 if no minions
+ */
+def getTeamAverageX(minions: List[Minion], team: Team): Double = {
+  var sumX = 0.0
+  var count = 0
+  
+  listForEach(minions) { m =>
+    if (m.isAlive) {
+      val isMatch = team match {
+        case Blue() => m.team match {
+          case Blue() => true
+          case Red() => false
+        }
+        case Red() => m.team match {
+          case Blue() => false
+          case Red() => true
+        }
+      }
+      if (isMatch) {
+        sumX = sumX + m.position.x
+        count = count + 1
+      }
+    }
+  }
+  
+  if (count > 0) sumX / intToDouble(count) else -1.0
+}
+
+/**
+ * Count alive minions for a team.
+ * @param minions - List of minions
+ * @param team - The team to count
+ * @return Number of alive minions
+ */
+def countTeamAliveMinions(minions: List[Minion], team: Team): Int = {
+  var count = 0
+  listForEach(minions) { m =>
+    if (m.isAlive) {
+      val isMatch = team match {
+        case Blue() => m.team match {
+          case Blue() => true
+          case Red() => false
+        }
+        case Red() => m.team match {
+          case Blue() => false
+          case Red() => true
+        }
+      }
+      if (isMatch) {
+        count = count + 1
+      }
+    }
+  }
+  count
+}
+
+/**
+ * Calculate the current WaveState based on minion positions and counts.
+ * @param minions - List of all minions
+ * @param blueTurretX - X position of blue turret
+ * @param redTurretX - X position of red turret
+ * @return The calculated WaveState
+ */
+def calculateWaveState(minions: List[Minion], blueTurretX: Double, redTurretX: Double): WaveState = {
+  val blueCount = countTeamAliveMinions(minions, Blue())
+  val redCount = countTeamAliveMinions(minions, Red())
+  
+  if (blueCount == 0 && redCount == 0) {
+    Neutral()
+  } else {
+    val blueAvgX = getTeamAverageX(minions, Blue())
+    val redAvgX = getTeamAverageX(minions, Red())
+    
+    val laneCenter = (blueTurretX + redTurretX) / 2.0
+    val blueZone = blueTurretX + 100.0
+    val redZone = redTurretX - 100.0
+    
+    val countDiff = blueCount - redCount
+    
+    val wavePosition = if (blueAvgX >= 0.0 && redAvgX >= 0.0) {
+      (blueAvgX + redAvgX) / 2.0
+    } else {
+      if (blueAvgX >= 0.0) blueAvgX else redAvgX
+    }
+    
+    if (wavePosition < blueZone) {
+      if (redCount > 0 && blueCount == 0) {
+        Crashing()
+      } else {
+        if (countDiff > 2) {
+          Bouncing()
+        } else {
+          FrozenBlue()
+        }
+      }
+    } else {
+      if (wavePosition > redZone) {
+        if (blueCount > 0 && redCount == 0) {
+          Crashing()
+        } else {
+          if (countDiff < -2) {
+            Bouncing()
+          } else {
+            FrozenRed()
+          }
+        }
+      } else {
+        if (countDiff > 3) {
+          PushingRed()
+        } else {
+          if (countDiff < -3) {
+            PushingBlue()
+          } else {
+            if (countDiff > 1) {
+              SlowPushRed()
+            } else {
+              if (countDiff < -1) {
+                SlowPushBlue()
+              } else {
+                Neutral()
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }

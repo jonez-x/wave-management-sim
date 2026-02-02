@@ -1,0 +1,68 @@
+module src/utils/game
+
+import src/types
+import src/utils/math
+
+/**
+ * Returns the opposite team.
+ * @param team - The current team
+ * @return The opposing team
+ */
+def opposite(team: Team): Team =
+  team match {
+    case Blue() => Red()
+    case Red() => Blue()
+  }
+
+/**
+ * Returns the name of the team as a string.
+ * @param team - The team
+ * @return "Blue" or "Red"
+ */
+def teamName(team: Team): String =
+  team match {
+    case Blue() => "Blue"
+    case Red() => "Red"
+  }
+
+/**
+ * Returns the speed multiplier for the simulation speed.
+ * @param speed - The simulation speed setting
+ * @return The numerical multiplier (1.0, 2.0, or 4.0)
+ */
+def speedMultiplier(speed: SimulationSpeed): Double =
+  speed match {
+    case Speed1x() => 1.0
+    case Speed2x() => 2.0
+    case Speed4x() => 4.0
+  }
+
+/**
+ * Returns the display name of the simulation speed.
+ * @param speed - The simulation speed setting
+ * @return String representation like "1x", "2x", etc.
+ */
+def speedName(speed: SimulationSpeed): String =
+  speed match {
+    case Speed1x() => "1x"
+    case Speed2x() => "2x"
+    case Speed4x() => "4x"
+  }
+
+/**
+ * Returns the display name for the current wave state.
+ * @param state - The wave state
+ * @return Human-readable string describing the state
+ */
+def waveStateName(state: WaveState): String =
+  state match {
+    case Neutral() => "Neutral"
+    case PushingBlue() => "Pushing Blue"
+    case PushingRed() => "Pushing Red"
+    case SlowPushBlue() => "Slow Push Blue"
+    case SlowPushRed() => "Slow Push Red"
+    case FrozenBlue() => "Frozen (Blue Side)"
+    case FrozenRed() => "Frozen (Red Side)"
+    case Crashing() => "Crashing"
+    case Bouncing() => "Bouncing"
+  }

@@ -1,10 +1,22 @@
 module src/handlers
 
 import src/types
+import src/utils/math
+import src/utils/game
+import src/tools/utils
 import src/effects
+import src/game/minion
 import src/ffi/canvas
 import src/ffi/events
+import src/helpers
 
+
+/**
+ * Handles the State effect by maintaining a mutable variable.
+ * @param initial The initial game state
+ * @param prog The program to run
+ * @return The result of the program
+ */
 def withState[R](initial: GameState) { prog: => R / State }: R = {
   var current = initial
   try { prog() } with State {
@@ -13,6 +25,12 @@ def withState[R](initial: GameState) { prog: => R / State }: R = {
   }
 }
 
+/**
+ * Handles the State effect for testing, returning the final state.
+ * @param initial The initial game state
+ * @param prog The program to run
+ * @return A tuple of the result and the final state
+ */
 def withMockState[R](initial: GameState) { prog: => R / State }: (R, GameState) = {
   var current = initial
   val result = try { prog() } with State {
@@ -22,6 +40,13 @@ def withMockState[R](initial: GameState) { prog: => R / State }: (R, GameState) 
   (result, current)
 }
 
+/**
+ * Handles the Time effect.
+ * @param initialTime The starting time
+ * @param speed The simulation speed
+ * @param prog The program to run
+ * @return The result of the program
+ */
 def withTime[R](initialTime: Double, speed: SimulationSpeed) { prog: => R / Time }: R = {
   var time = initialTime
   val multiplier = speedMultiplier(speed)
@@ -32,37 +57,42 @@ def withTime[R](initialTime: Double, speed: SimulationSpeed) { prog: => R / Time
   }
 }
 
+/**
+ * Handles the Input effect using actual browser events.
+ * @param prog The program to run
+ * @return The result of the program
+ */
 def withBrowserInput[R] { prog: => R / Input }: R = {
   try { prog() } with Input {
     def getMousePosition() = resume(Vec2(getMouseX(), getMouseY()))
     def wasClicked() = resume(wasMouseClicked())
     def isKeyDown(key) = resume(isKeyPressed(key))
+    def wasKeyJustPressed(key) = resume(wasKeyJustPressed(key))
   }
 }
 
+/**
+ * Handles the Input effect using mock data.
+ * @param mousePos The simulated mouse position
+ * @param clicked Whether the mouse is clicked
+ * @param keys List of currently pressed keys
+ * @param prog The program to run
+ * @return The result of the program
+ */
 def withMockInput[R](mousePos: Vec2, clicked: Bool, keys: List[String]) { prog: => R / Input }: R = {
   try { prog() } with Input {
     def getMousePosition() = resume(mousePos)
     def wasClicked() = resume(clicked)
     def isKeyDown(key) = resume(listContainsString(keys, key))
+    def wasKeyJustPressed(key) = resume(listContainsString(keys, key))
   }
 }
 
 /**
- * Helper function to check if a list contains an element.
- * @param lst - The list to search
- * @param item - The item to find
- * @return True if item is in list
+ * Handles the Render effect using HTML5 Canvas calls.
+ * @param prog The program to run
+ * @return The result of the program
  */
-def listContainsString(lst: List[String], item: String): Bool = {
-  lst match {
-    case Nil() => false
-    case Cons(head, tail) => 
-      if (head == item) true 
-      else listContainsString(tail, item)
-  }
-}
-
 def withCanvasRenderer[R] { prog: => R / Render }: R = {
   try { prog() } with Render {
     def clear() = {
@@ -71,76 +101,104 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
     }
     
     def drawMinion(minion) = {
-      minion.team match {
-        case Blue() => setFillColor(66, 135, 245, 1.0)
-        case Red() => setFillColor(245, 66, 66, 1.0)
-      }
-      
-      val radius = getMinionRadius(minion.minionType)
-      
-      fillCircle(minion.position.x, minion.position.y, radius)
-      
-      setFillColor(255, 255, 255, 0.8)
-      minion.minionType match {
-        case Melee() => 
-          fillRect(minion.position.x - 3.0, minion.position.y - 3.0, 6.0, 6.0)
-        case Caster() =>
-          fillCircle(minion.position.x, minion.position.y, 3.0)
-        case Cannon() =>
-          fillRect(minion.position.x - 5.0, minion.position.y - 5.0, 10.0, 10.0)
-      }
-      
-      val hpRatio = minion.currentHp / minion.stats.maxHp
-      val barWidth = radius * 2.0
-      val barHeight = 4.0
-      val barY = minion.position.y - radius - 8.0
-      
-      setFillColor(60, 60, 60, 1.0)
-      fillRect(minion.position.x - barWidth / 2.0, barY, barWidth, barHeight)
-      
-      if (hpRatio > 0.5) {
-        setFillColor(76, 175, 80, 1.0)
-      } else {
-        if (hpRatio > 0.25) {
-          setFillColor(255, 193, 7, 1.0)
-        } else {
-          setFillColor(244, 67, 54, 1.0)
+      if (minion.isAlive) {
+        val x = minion.position.x
+        val y = minion.position.y
+        val radius = getMinionRadius(minion.minionType)
+        
+        minion.team match {
+          case Blue() => 
+            minion.minionType match {
+              case Melee() => setFillColor(50, 120, 200, 1.0)
+              case Caster() => setFillColor(80, 150, 230, 1.0)
+              case Cannon() => setFillColor(30, 90, 170, 1.0)
+            }
+          case Red() =>
+            minion.minionType match {
+              case Melee() => setFillColor(200, 60, 60, 1.0)
+              case Caster() => setFillColor(230, 90, 90, 1.0)
+              case Cannon() => setFillColor(170, 40, 40, 1.0)
+            }
         }
+        
+        fillCircle(x, y, radius)
+        
+        minion.minionType match {
+          case Cannon() =>
+            setStrokeColor(255, 215, 0, 0.8)
+            setLineWidth(2.0)
+            strokeCircle(x, y, radius)
+          case _ => ()
+        }
+        
+        val barWidth = radius * 2.0 + 4.0
+        val barHeight = 3.0
+        val barY = y - radius - 6.0
+        val ratio = minion.currentHp / minion.stats.maxHp
+        
+        setFillColor(20, 20, 20, 0.8)
+        fillRect(x - barWidth / 2.0, barY, barWidth, barHeight)
+        
+        if (ratio > 0.6) {
+          setFillColor(60, 180, 60, 1.0)
+        } else {
+          if (ratio > 0.3) {
+            setFillColor(220, 180, 40, 1.0)
+          } else {
+            setFillColor(200, 50, 50, 1.0)
+          }
+        }
+        fillRect(x - barWidth / 2.0, barY, barWidth * ratio, barHeight)
       }
-      fillRect(minion.position.x - barWidth / 2.0, barY, barWidth * hpRatio, barHeight)
       
       resume(())
     }
     
     def drawTurret(turret) = {
-      turret.team match {
-        case Blue() => setFillColor(33, 150, 243, 1.0)
-        case Red() => setFillColor(244, 67, 54, 1.0)
+      if (turret.isAlive) {
+        val size = 35.0
+        val x = turret.position.x
+        val y = turret.position.y
+        
+        turret.team match {
+          case Blue() => setStrokeColor(80, 150, 220, 0.3)
+          case Red() => setStrokeColor(220, 100, 100, 0.3)
+        }
+        setLineWidth(2.0)
+        strokeCircle(x, y, TURRET_STATS.attackRange)
+        
+        turret.team match {
+          case Blue() => setFillColor(80, 150, 220, 0.08)
+          case Red() => setFillColor(220, 100, 100, 0.08)
+        }
+        fillCircle(x, y, TURRET_STATS.attackRange)
+        
+        turret.team match {
+          case Blue() => setFillColor(30, 100, 180, 1.0)
+          case Red() => setFillColor(180, 50, 50, 1.0)
+        }
+        fillRect(x - size / 2.0, y - size / 2.0, size, size)
+        
+        turret.team match {
+          case Blue() => setFillColor(50, 150, 220, 1.0)
+          case Red() => setFillColor(220, 80, 80, 1.0)
+        }
+        fillRect(x - size / 4.0, y - size / 4.0, size / 2.0, size / 2.0)
+        
+        val barWidth = 40.0
+        val barHeight = 4.0
+        val barY = y - size / 2.0 - 10.0
+        val ratio = turret.currentHp / TURRET_STATS.maxHp
+        
+        setFillColor(20, 20, 20, 0.8)
+        fillRect(x - barWidth / 2.0 - 1.0, barY - 1.0, barWidth + 2.0, barHeight + 2.0)
+        
+        turret.team match {
+          case Blue() => setFillColor(80, 150, 220, 1.0)
+          case Red() => setFillColor(220, 80, 80, 1.0)
+        }
+        fillRect(x - barWidth / 2.0, barY, barWidth * ratio, barHeight)
       }
-      
-      val size = 40.0
-      fillRect(turret.position.x - size / 2.0, turret.position.y - size / 2.0, size, size)
-      
-      setFillColor(255, 255, 255, 0.3)
-      fillRect(turret.position.x - size / 4.0, turret.position.y - size / 4.0, size / 2.0, size / 2.0)
-      
-      setStrokeColor(255, 255, 255, 0.15)
-      setLineWidth(1.0)
-      strokeCircle(turret.position.x, turret.position.y, TURRET_STATS.attackRange)
-      
-      val hpRatio = turret.currentHp / TURRET_STATS.maxHp
-      val barWidth = 50.0
-      val barHeight = 6.0
-      val barY = turret.position.y - size / 2.0 - 12.0
-      
-      setFillColor(40, 40, 40, 1.0)
-      fillRect(turret.position.x - barWidth / 2.0, barY, barWidth, barHeight)
-      
-      turret.team match {
-        case Blue() => setFillColor(66, 165, 245, 1.0)
-        case Red() => setFillColor(239, 83, 80, 1.0)
-      }
-      fillRect(turret.position.x - barWidth / 2.0, barY, barWidth * hpRatio, barHeight)
       
       resume(())
     }
@@ -159,17 +217,38 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
     }
     
     def drawLane() = {
-      setFillColor(35, 40, 45, 1.0)
-      fillRect(LANE_START_X, LANE_Y - 50.0, LANE_END_X - LANE_START_X, 100.0)
+      setFillColor(30, 35, 40, 1.0)
+      fillRect(0.0, 0.0, CANVAS_WIDTH.toDouble, CANVAS_HEIGHT.toDouble)
       
-      setStrokeColor(200, 170, 100, 0.3)
-      setLineWidth(2.0)
-      drawLine(LANE_START_X, LANE_Y - 50.0, LANE_END_X, LANE_Y - 50.0)
-      drawLine(LANE_START_X, LANE_Y + 50.0, LANE_END_X, LANE_Y + 50.0)
+      setFillColor(35, 50, 35, 1.0)
+      fillRect(LANE_START_X, LANE_MIN_Y, LANE_END_X - LANE_START_X, LANE_HEIGHT)
       
-      setStrokeColor(255, 255, 255, 0.1)
+      setFillColor(30, 50, 70, 0.6)
+      fillRect(LANE_START_X, LANE_MIN_Y, BLUE_TURRET_X - LANE_START_X, LANE_HEIGHT)
+      
+      setFillColor(70, 40, 40, 0.6)
+      fillRect(RED_TURRET_X, LANE_MIN_Y, LANE_END_X - RED_TURRET_X, LANE_HEIGHT)
+      
+      val innerPadding = 25.0
+      setFillColor(55, 50, 40, 1.0)
+      fillRect(BLUE_TURRET_X, LANE_MIN_Y + innerPadding, RED_TURRET_X - BLUE_TURRET_X, LANE_HEIGHT - innerPadding * 2.0)
+      
+      setStrokeColor(255, 255, 255, 0.12)
       setLineWidth(1.0)
       drawLine(LANE_START_X, LANE_Y, LANE_END_X, LANE_Y)
+      
+      setStrokeColor(100, 100, 200, 0.4)
+      setLineWidth(2.0)
+      drawLine(BLUE_TURRET_X, LANE_MIN_Y, BLUE_TURRET_X, LANE_MAX_Y)
+      setStrokeColor(200, 100, 100, 0.4)
+      drawLine(RED_TURRET_X, LANE_MIN_Y, RED_TURRET_X, LANE_MAX_Y)
+      
+      setStrokeColor(200, 100, 50, 0.7)
+      setLineWidth(3.0)
+      drawLine(LANE_START_X, LANE_MIN_Y, LANE_END_X, LANE_MIN_Y)
+      drawLine(LANE_START_X, LANE_MAX_Y, LANE_END_X, LANE_MAX_Y)
+      drawLine(LANE_START_X, LANE_MIN_Y, LANE_START_X, LANE_MAX_Y)
+      drawLine(LANE_END_X, LANE_MIN_Y, LANE_END_X, LANE_MAX_Y)
       
       resume(())
     }
@@ -201,8 +280,20 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
       
       fillText("Tool: " ++ toolName(state.selectedTool), intToDouble(CANVAS_WIDTH) - 20.0, 55.0)
       
-      setFillColor(150, 150, 150, 1.0)
+      state.waveState match {
+        case Neutral() => setFillColor(200, 170, 100, 1.0)
+        case PushingBlue() => setFillColor(239, 83, 80, 1.0)
+        case PushingRed() => setFillColor(66, 165, 245, 1.0)
+        case SlowPushBlue() => setFillColor(255, 150, 130, 1.0)
+        case SlowPushRed() => setFillColor(130, 200, 255, 1.0)
+        case FrozenBlue() => setFillColor(100, 200, 255, 0.9)
+        case FrozenRed() => setFillColor(255, 180, 100, 0.9)
+        case Crashing() => setFillColor(255, 80, 80, 1.0)
+        case Bouncing() => setFillColor(80, 255, 150, 1.0)
+      }
+      setFont("bold 18px 'Cinzel', serif")
       fillText(waveStateName(state.waveState), intToDouble(CANVAS_WIDTH) - 20.0, 80.0)
+      setFont("bold 16px 'Cinzel', serif")
       
       if (state.isPaused) {
         setFont("bold 32px 'Cinzel', serif")
@@ -243,17 +334,60 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
     }
     
     def drawAttackLine(from, to, team) = {
+      val centerX = to.x
+      val centerY = to.y
+      
       team match {
-        case Blue() => setStrokeColor(100, 180, 255, 0.7)
-        case Red() => setStrokeColor(255, 100, 100, 0.7)
+        case Blue() => setStrokeColor(200, 220, 255, 0.9)
+        case Red() => setStrokeColor(255, 200, 200, 0.9)
       }
       setLineWidth(2.0)
-      drawLine(from.x, from.y, to.x, to.y)
+      
+      drawLine(centerX - 10.0, centerY - 10.0, centerX + 10.0, centerY + 10.0)
+      drawLine(centerX - 8.0, centerY - 8.0, centerX + 8.0, centerY + 8.0)
+      drawLine(centerX - 4.0, centerY + 4.0, centerX + 4.0, centerY - 4.0)
+      
+      team match {
+        case Blue() => setFillColor(100, 180, 255, 0.5)
+        case Red() => setFillColor(255, 100, 100, 0.5)
+      }
+      fillCircle(centerX, centerY, 15.0)
+      
+      resume(())
+    }
+    
+    def drawMinionAttack(minion, target) = {
+      val centerX = target.position.x
+      val centerY = target.position.y
+      
+      minion.team match {
+        case Blue() => setStrokeColor(200, 220, 255, 0.9)
+        case Red() => setStrokeColor(255, 200, 200, 0.9)
+      }
+      setLineWidth(2.0)
+      
+      drawLine(centerX - 10.0, centerY - 10.0, centerX + 10.0, centerY + 10.0)
+      drawLine(centerX - 8.0, centerY - 8.0, centerX + 8.0, centerY + 8.0)
+      drawLine(centerX - 4.0, centerY + 4.0, centerX + 4.0, centerY - 4.0)
+      
+      minion.team match {
+         case Blue() => setFillColor(100, 180, 255, 0.5)
+         case Red() => setFillColor(255, 100, 100, 0.5)
+      }
+      fillCircle(centerX, centerY, 15.0)
+
       resume(())
     }
     
     def drawProjectile(p) = {
-      if (p.isCaster) {
+      if (p.isTurret) {
+        setFillColor(255, 150, 50, 0.4)
+        fillCircle(p.position.x, p.position.y, 14.0)
+        setFillColor(255, 200, 50, 1.0)
+        fillCircle(p.position.x, p.position.y, 8.0)
+        setFillColor(255, 255, 200, 1.0)
+        fillCircle(p.position.x, p.position.y, 4.0)
+      } else if (p.isCaster) {
         setFillColor(255, 255, 200, 1.0)
         fillCircle(p.position.x, p.position.y, 4.0)
       } else {
@@ -262,43 +396,104 @@ def withCanvasRenderer[R] { prog: => R / Render }: R = {
       }
       resume(())
     }
+    
+    def drawVisualEffect(vfx, currentTime) = {
+      val elapsed = currentTime - vfx.startTime
+      val progress = elapsed / vfx.duration
+      val alpha = maxDouble(0.0, 1.0 - progress)
+      
+      vfx.effectType match {
+        case ClickRipple() =>
+          val expandedRadius = vfx.radius * (1.0 + progress * 0.5)
+          setStrokeColor(255, 255, 255, alpha * 0.6)
+          setLineWidth(2.0)
+          strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
+          
+        case AoeExplosion() =>
+          val expandedRadius = vfx.radius * (0.8 + progress * 0.4)
+          setStrokeColor(255, 180, 50, alpha * 0.8)
+          setLineWidth(3.0)
+          strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
+          setFillColor(255, 200, 50, alpha * 0.2)
+          fillCircle(vfx.position.x, vfx.position.y, expandedRadius)
+          
+        case LastHitMarker() =>
+          setFillColor(255, 215, 0, alpha)
+          val size = 8.0 * (1.0 - progress * 0.3)
+          fillCircle(vfx.position.x, vfx.position.y - (progress * 15.0), size)
+          setFont("bold 14px Arial")
+          setTextAlign("center")
+          fillText("+", vfx.position.x, vfx.position.y - 10.0 - (progress * 20.0))
+          
+        case KillMarker() =>
+          setStrokeColor(255, 50, 50, alpha)
+          setLineWidth(3.0)
+          val size = 10.0 * (1.0 - progress * 0.2)
+          drawLine(vfx.position.x - size, vfx.position.y - size, vfx.position.x + size, vfx.position.y + size)
+          drawLine(vfx.position.x + size, vfx.position.y - size, vfx.position.x - size, vfx.position.y + size)
+          
+        case TankActivation() =>
+          val expandedRadius = 25.0 * (1.0 + progress * 0.5)
+          setStrokeColor(50, 255, 100, alpha * 0.8)
+          setLineWidth(3.0)
+          strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
+          setFillColor(50, 255, 100, alpha * 0.15)
+          fillCircle(vfx.position.x, vfx.position.y, expandedRadius)
+      }
+      resume(())
+    }
+    
+    def drawTankIndicator(position, isTanking, gameTime) = {
+      if (isTanking) {
+        val x = position.x
+        val y = position.y
+        val aggroRange = 400.0
+        
+        val pulse = 0.8 + 0.2 * modDouble(gameTime * 3.0, 1.0)
+        
+        setStrokeColor(50, 255, 100, 0.3 * pulse)
+        setLineWidth(2.0)
+        strokeCircle(x, y, aggroRange)
+        
+        setFillColor(50, 255, 100, 0.15 * pulse)
+        fillCircle(x, y, 35.0)
+        
+        setFillColor(30, 180, 80, 0.95)
+        setStrokeColor(50, 255, 100, 1.0)
+        setLineWidth(3.0)
+        
+        drawLine(x - 15.0, y - 18.0, x - 18.0, y - 5.0)
+        drawLine(x - 18.0, y - 5.0, x - 12.0, y + 12.0)
+        drawLine(x - 12.0, y + 12.0, x, y + 22.0)
+        drawLine(x, y + 22.0, x + 12.0, y + 12.0)
+        drawLine(x + 12.0, y + 12.0, x + 18.0, y - 5.0)
+        drawLine(x + 18.0, y - 5.0, x + 15.0, y - 18.0)
+        drawLine(x + 15.0, y - 18.0, x - 15.0, y - 18.0)
+        
+        setFillColor(40, 200, 100, 0.9)
+        fillCircle(x, y, 12.0)
+        
+        setFillColor(255, 255, 255, 0.9)
+        drawLine(x, y - 8.0, x + 6.0, y)
+        drawLine(x + 6.0, y, x, y + 8.0)
+        drawLine(x, y + 8.0, x - 6.0, y)
+        drawLine(x - 6.0, y, x, y - 8.0)
+        
+        setFont("bold 12px Arial")
+        setFillColor(50, 255, 100, 1.0)
+        setTextAlign("center")
+        fillText("TANKING", x, y - 35.0)
+      }
+      resume(())
+    }
   }
 }
 
-// Helper function to count minions by team
-def countTeamMinions(minions: List[Minion], team: Team): Int = {
-  minions match {
-    case Nil() => 0
-    case Cons(m, rest) =>
-      val count = if (m.isAlive) {
-        m.team match {
-          case Blue() => team match {
-            case Blue() => 1
-            case Red() => 0
-          }
-          case Red() => team match {
-            case Blue() => 0
-            case Red() => 1
-          }
-        }
-      } else { 0 }
-      count + countTeamMinions(rest, team)
-  }
-}
-
-// Convert Double to Int
-extern def doubleToInt(x: Double): Int =
-  js "Math.floor(${x})"
-
-// Convert Int to Double
-extern def intToDouble(x: Int): Double =
-  js "(${x})"
-
-// Modulo operation
-extern def modulo(x: Int, y: Int): Int =
-  js "(${x}) % (${y})"
-
-// Mock render handler for testing (no-op)
+/**
+ * Handles the Render effect with no-op implementations for testing.
+ * @param prog The program to run
+ * @return The result of the program
+ */
 def withMockRenderer[R] { prog: => R / Render }: R = {
   try { prog() } with Render {
     def clear() = resume(())
@@ -309,86 +504,9 @@ def withMockRenderer[R] { prog: => R / Render }: R = {
     def drawUI(_) = resume(())
     def drawToolPreview(_, _) = resume(())
     def drawAttackLine(_, _, _) = resume(())
+    def drawMinionAttack(_, _) = resume(())
     def drawProjectile(_) = resume(())
-  }
-}
-
-extern js """
-  function $randomDouble() {
-    return Math.random();
-  }
-  
-  function $randomInt(max) {
-    return Math.floor(Math.random() * max);
-  }
-"""
-
-extern def jsRandomDouble(): Double =
-  js "$randomDouble()"
-
-extern def jsRandomInt(max: Int): Int =
-  js "$randomInt(${max})"
-
-def withRandom[R] { prog: => R / Random }: R = {
-  try { prog() } with Random {
-    def randomDouble() = resume(jsRandomDouble())
-    def randomInt(max) = resume(jsRandomInt(max))
-  }
-}
-
-/**
- * Simple LCG for deterministic testing.
- */
-def withMockRandom[R](seed: Int) { prog: => R / Random }: R = {
-  var current = seed
-  try { prog() } with Random {
-    def randomDouble() = {
-      // Simple LCG for deterministic testing
-      current = modulo(current * 1103515245 + 12345, 2147483648)
-      resume(intToDouble(current) / 2147483648.0)
-    }
-    def randomInt(max) = {
-      current = modulo(current * 1103515245 + 12345, 2147483648)
-      resume(modulo(current, max))
-    }
-  }
-}
-
-extern js """
-  function $log(msg) {
-    console.log(msg);
-  }
-  
-  function $warn(msg) {
-    console.warn(msg);
-  }
-  
-  function $logError(msg) {
-    console.error(msg);
-  }
-"""
-
-extern def jsLog(msg: String): Unit =
-  js "$log(${msg})"
-
-extern def jsWarn(msg: String): Unit =
-  js "$warn(${msg})"
-
-extern def jsLogError(msg: String): Unit =
-  js "$logError(${msg})"
-
-def withConsoleLog[R] { prog: => R / Log }: R = {
-  try { prog() } with Log {
-    def log(msg) = { jsLog(msg); resume(()) }
-    def warn(msg) = { jsWarn(msg); resume(()) }
-    def logError(msg) = { jsLogError(msg); resume(()) }
-  }
-}
-
-def withSilentLog[R] { prog: => R / Log }: R = {
-  try { prog() } with Log {
-    def log(_) = resume(())
-    def warn(_) = resume(())
-    def logError(_) = resume(())
+    def drawVisualEffect(_, _) = resume(())
+    def drawTankIndicator(_, _, _) = resume(())
   }
 }

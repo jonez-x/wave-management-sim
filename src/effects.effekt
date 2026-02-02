@@ -1,42 +1,121 @@
 module src/effects
 
 import src/types
+import src/utils/math
 
+/**
+ * Effect for managing the global game state.
+ * Allows reading and writing the complete GameState record.
+ */
 interface State {
   def getState(): GameState
   def setState(state: GameState): Unit
 }
 
+/**
+ * Effect for time management.
+ * handles the simulation loop timing.
+ */
+interface Time {
+  def getCurrentTime(): Double
+  def advanceTime(delta: Double): Unit
+  def getSpeedMultiplier(): Double
+}
+
+/**
+ * Effect for user input handling.
+ * Abstracts mouse and keyboard interactions.
+ */
+interface Input {
+  def getMousePosition(): Vec2
+  def wasClicked(): Bool
+  def isKeyDown(key: String): Bool
+  def wasKeyJustPressed(key: String): Bool
+}
+
+/**
+ * Effect for rendering graphics.
+ * Abstracts drawing commands for the game visualization.
+ */
+interface Render {
+  def clear(): Unit
+  def drawMinion(minion: Minion): Unit
+  def drawTurret(turret: Turret): Unit
+  def drawHealthBar(pos: Vec2, current: Double, max: Double, width: Double): Unit
+  def drawLane(): Unit
+  def drawUI(state: GameState): Unit
+  def drawToolPreview(tool: Tool, mousePos: Vec2): Unit
+  def drawAttackLine(from: Vec2, to: Vec2, team: Team): Unit
+  def drawMinionAttack(minion: Minion, target: Minion): Unit
+  def drawProjectile(p: Projectile): Unit
+  def drawVisualEffect(visualEffect: VisualEffect, currentTime: Double): Unit
+  def drawTankIndicator(position: Vec2, isTanking: Bool, gameTime: Double): Unit
+}
+
+/**
+ * Helper to get the list of active minions from the state.
+ */
 def getMinions(): List[Minion] / State =
   do getState().minions
 
+/**
+ * Helper to get the Blue team's turret.
+ */
 def getBlueTurret(): Turret / State =
   do getState().blueTurret
 
+/**
+ * Helper to get the Red team's turret.
+ */
 def getRedTurret(): Turret / State =
   do getState().redTurret
 
+/**
+ * Helper to get the current game time.
+ */
 def getGameTime(): Double / State =
   do getState().gameTime
 
+/**
+ * Helper to check if the game is currently paused.
+ */
 def isPaused(): Bool / State =
   do getState().isPaused
 
+/**
+ * Helper to get the currently selected tool.
+ */
 def getSelectedTool(): Tool / State =
   do getState().selectedTool
 
+/**
+ * Helper to get the current simulation speed.
+ */
 def getSpeed(): SimulationSpeed / State =
   do getState().speed
 
+/**
+ * Helper to get the current wave number.
+ */
 def getWaveNumber(): Int / State =
   do getState().waveNumber
 
+/**
+ * Helper to get the time scheduled for the next wave spawn.
+ */
 def getNextSpawnTime(): Double / State =
   do getState().nextSpawnTime
 
+/**
+ * Helper to get the current wave equilibrium state.
+ */
 def getWaveState(): WaveState / State =
   do getState().waveState
 
+/**
+ * Updates the list of active minions in the state.
+ * @param newMinions - The new list of minions
+ */
 def setMinions(newMinions: List[Minion]): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -59,6 +138,10 @@ def setMinions(newMinions: List[Minion]): Unit / State = {
   ))
 }
 
+/**
+ * Updates the current game time.
+ * @param newTime - The new game time in seconds
+ */
 def setGameTime(newTime: Double): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -81,6 +164,10 @@ def setGameTime(newTime: Double): Unit / State = {
   ))
 }
 
+/**
+ * Sets the paused state of the game.
+ * @param paused - True to pause, false to resume
+ */
 def setPaused(paused: Bool): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -103,6 +190,10 @@ def setPaused(paused: Bool): Unit / State = {
   ))
 }
 
+/**
+ * Updates the simulation speed.
+ * @param newSpeed - The new speed setting
+ */
 def setSpeed(newSpeed: SimulationSpeed): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -125,6 +216,10 @@ def setSpeed(newSpeed: SimulationSpeed): Unit / State = {
   ))
 }
 
+/**
+ * Updates the selected tool.
+ * @param tool - The new tool to select
+ */
 def setSelectedTool(tool: Tool): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -147,6 +242,9 @@ def setSelectedTool(tool: Tool): Unit / State = {
   ))
 }
 
+/**
+ * Increments the wave number by 1.
+ */
 def incrementWaveNumber(): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -169,6 +267,10 @@ def incrementWaveNumber(): Unit / State = {
   ))
 }
 
+/**
+ * Sets the time for the next wave spawn.
+ * @param time - The absolute game time for the next spawn
+ */
 def setNextSpawnTime(time: Double): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -191,6 +293,10 @@ def setNextSpawnTime(time: Double): Unit / State = {
   ))
 }
 
+/**
+ * Updates the displayed wave state.
+ * @param newWaveState - The new calculated wave equlibrium
+ */
 def setWaveState(newWaveState: WaveState): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -213,6 +319,10 @@ def setWaveState(newWaveState: WaveState): Unit / State = {
   ))
 }
 
+/**
+ * Generates a new unique entity ID and updates the state counter.
+ * @return The new unique ID
+ */
 def getNextEntityId(): Int / State = {
   val state = do getState()
   do setState(GameState(
@@ -236,6 +346,10 @@ def getNextEntityId(): Int / State = {
   state.nextEntityId
 }
 
+/**
+ * Adds a new minion to the game state.
+ * @param minion - The new minion to add
+ */
 def addMinion(minion: Minion): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -258,6 +372,10 @@ def addMinion(minion: Minion): Unit / State = {
   ))
 }
 
+/**
+ * Updates the Blue team's turret.
+ * @param turret - The updated turret record
+ */
 def updateBlueTurret(turret: Turret): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -280,6 +398,10 @@ def updateBlueTurret(turret: Turret): Unit / State = {
   ))
 }
 
+/**
+ * Updates the Red team's turret.
+ * @param turret - The updated turret record
+ */
 def updateRedTurret(turret: Turret): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -302,6 +424,11 @@ def updateRedTurret(turret: Turret): Unit / State = {
   ))
 }
 
+/**
+ * Sets the position and status of the Tank tool.
+ * @param pos - The position to tank at
+ * @param isTanking - Whether the tank tool is active
+ */
 def setTankPosition(pos: Vec2, isTanking: Bool): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -324,6 +451,10 @@ def setTankPosition(pos: Vec2, isTanking: Bool): Unit / State = {
   ))
 }
 
+/**
+ * Updates the list of active projectiles.
+ * @param newProjectiles - The new list of projectiles
+ */
 def setProjectiles(newProjectiles: List[Projectile]): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -346,6 +477,10 @@ def setProjectiles(newProjectiles: List[Projectile]): Unit / State = {
   ))
 }
 
+/**
+ * Updates the list of pending spawns (queued minions).
+ * @param newPending - The new list of pending spawns
+ */
 def setPendingSpawns(newPending: List[PendingSpawn]): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -368,6 +503,10 @@ def setPendingSpawns(newPending: List[PendingSpawn]): Unit / State = {
   ))
 }
 
+/**
+ * Updates the list of active visual effects.
+ * @param newEffects - The new list of visual effects
+ */
 def setVisualEffects(newEffects: List[VisualEffect]): Unit / State = {
   val state = do getState()
   do setState(GameState(
@@ -390,42 +529,23 @@ def setVisualEffects(newEffects: List[VisualEffect]): Unit / State = {
   ))
 }
 
+/**
+ * Adds a single visual effect to the game state.
+ * @param vfx - The visual effect to add
+ */
 def addVisualEffect(vfx: VisualEffect): Unit / State = {
   val state = do getState()
   setVisualEffects(Cons(vfx, state.visualEffects))
 }
 
-interface Time {
-  def getCurrentTime(): Double
-  def advanceTime(delta: Double): Unit
-  def getSpeedMultiplier(): Double
-}
+/**
+ * Helper to get the current mouse position via Input effect.
+ */
+def getMousePosition(): Vec2 / Input =
+  do getMousePosition()
 
-interface Input {
-  def getMousePosition(): Vec2
-  def wasClicked(): Bool
-  def isKeyDown(key: String): Bool
-}
-
-interface Render {
-  def clear(): Unit
-  def drawMinion(minion: Minion): Unit
-  def drawTurret(turret: Turret): Unit
-  def drawHealthBar(pos: Vec2, current: Double, max: Double, width: Double): Unit
-  def drawLane(): Unit
-  def drawUI(state: GameState): Unit
-  def drawToolPreview(tool: Tool, mousePos: Vec2): Unit
-  def drawAttackLine(from: Vec2, to: Vec2, team: Team): Unit
-  def drawProjectile(p: Projectile): Unit
-}
-
-interface Random {
-  def randomDouble(): Double
-  def randomInt(max: Int): Int
-}
-
-interface Log {
-  def log(message: String): Unit
-  def warn(message: String): Unit
-  def logError(message: String): Unit
-}
+/**
+ * Helper to check if mouse was clicked via Input effect.
+ */
+def wasClicked(): Bool / Input =
+  do wasClicked()

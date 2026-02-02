@@ -1,6 +1,7 @@
 module src/tools/dispatcher
 
 import src/types
+import src/utils/math
 import src/effects
 import src/tools/lasthit
 import src/tools/aoe

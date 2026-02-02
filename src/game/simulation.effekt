@@ -1,14 +1,12 @@
 module src/game/simulation
-
 import src/types
 import src/effects
 import src/game/minion
 import src/game/combat
 import src/game/wave
-
-// ============================================================
-// Main Simulation Loop - Coordinates all game systems
-// ============================================================
+import src/utils/lists
+import src/utils/math
+import src/tools/dispatcher
 
 /**
  * Remove dead minions from the list.
@@ -47,14 +45,6 @@ def simulationStep(deltaTime: Double): Unit / {State, Time} = {
     
     scheduleResult match {
       case (updatedPendingSpawns, newWaveNumber, newNextSpawnTime) =>
-        // Detect if a wave was spawned (new scheduled)
-        val waveSpawned = newWaveNumber > state.waveNumber
-        val newWaveState = if (waveSpawned) {
-          Neutral()  // Reset wave state when new wave spawns
-        } else {
-          state.waveState
-        }
-        
         val (afterSpawnMinions, remainingPending, newNextEntityId) = processPendingSpawns(
           updatedPendingSpawns,
           state.minions,
@@ -86,6 +76,16 @@ def simulationStep(deltaTime: Double): Unit / {State, Time} = {
           case (afterCombatMinions, newBlueTurret, newRedTurret, newProjectiles, finalEntityId) =>
             val aliveMinions = removeDeadMinions(afterCombatMinions)
             
+            val calculatedWaveState = calculateWaveState(
+              aliveMinions,
+              state.blueTurret.position.x,
+              state.redTurret.position.x
+            )
+            
+            val activeEffects = listFilter(state.visualEffects) { vfx =>
+              (newGameTime - vfx.startTime) < vfx.duration
+            }
+            
             do setState(GameState(
               aliveMinions,
               newBlueTurret,
@@ -97,19 +97,29 @@ def simulationStep(deltaTime: Double): Unit / {State, Time} = {
               state.speed,
               state.selectedTool,
               finalEntityId,
-              newWaveState,
+              calculatedWaveState,
               state.isPlayerTanking,
               state.tankPosition,
               newProjectiles,
               remainingPending,
-              state.visualEffects
+              activeEffects
             ))
         }
     }
   }
 }
 
-// Render the current game state
+/**
+ * Renders the current game state to the screen.
+ *
+ * This function retrieves the current game state and mouse position,
+ * clears the rendering context, and draws all game elements including
+ * the lane and turrets.
+ *
+ * @effect State - Reads game state
+ * @effect Render - Draws to the screen
+ * @effect Input - Reads mouse position
+ */
 def renderGame(): Unit / {State, Render, Input} = {
   val state = do getState()
   val mousePos = do getMousePosition()
@@ -123,13 +133,29 @@ def renderGame(): Unit / {State, Render, Input} = {
   
   drawMinions(state.minions)
   
+  listForEach(state.projectiles) { p =>
+    do drawProjectile(p)
+  }
+  
+  do drawTankIndicator(state.tankPosition, state.isPlayerTanking, state.gameTime)
+  
+  listForEach(state.visualEffects) { vfx =>
+    do drawVisualEffect(vfx, state.gameTime)
+  }
+
   do drawUI(state)
   
   do drawToolPreview(state.selectedTool, mousePos)
   
   drawAttackLines(state.minions, state.blueTurret, state.redTurret)
+  drawMinionAttacks(state.minions, state.gameTime)
 }
 
+/**
+ * Draws all alive minions.
+ * @param minions - List of minions to draw
+ * @effect Render - Draws to the screen
+ */
 def drawMinions(minions: List[Minion]): Unit / Render = {
   minions match {
     case Nil() => ()
@@ -141,6 +167,13 @@ def drawMinions(minions: List[Minion]): Unit / Render = {
   }
 }
 
+/**
+ * Draws attack lines from turrets to their current targets.
+ * @param minions - List of minions to check for targets
+ * @param blueTurret - The blue turret
+ * @param redTurret - The red turret
+ * @effect Render - Draws lines to the screen
+ */
 def drawAttackLines(minions: List[Minion], blueTurret: Turret, redTurret: Turret): Unit / Render = {
   if (blueTurret.isAlive && blueTurret.targetId >= 0) {
     val targetOpt = listFind(minions) { m => m.id == blueTurret.targetId }
@@ -165,49 +198,88 @@ def drawAttackLines(minions: List[Minion], blueTurret: Turret, redTurret: Turret
   }
 }
 
-def handleKeyboardInput(): Unit / {State, Input} = {
-  val state = do getState()
-  
-  if (do isKeyDown(" ")) {
-    setPaused(not(state.isPaused))
-  }
-  
-  if (do isKeyDown("1")) {
-    setSelectedTool(NoTool())
-  }
-  if (do isKeyDown("2")) {
-    setSelectedTool(LastHitTool())
-  }
-  if (do isKeyDown("3")) {
-    setSelectedTool(AoETool())
-  }
-  if (do isKeyDown("4")) {
-    setSelectedTool(KillCastersTool())
-  }
-  if (do isKeyDown("5")) {
-    setSelectedTool(FullClearTool())
-  }
-  if (do isKeyDown("6")) {
-    setSelectedTool(TankTool())
-  }
-  
-  if (do isKeyDown("+") || do isKeyDown("=")) {
-    state.speed match {
-      case Speed1x() => setSpeed(Speed2x())
-      case Speed2x() => setSpeed(Speed4x())
-      case Speed4x() => ()
-    }
-  }
-  if (do isKeyDown("-") || do isKeyDown("_")) {
-    state.speed match {
-      case Speed1x() => ()
-      case Speed2x() => setSpeed(Speed1x())
-      case Speed4x() => setSpeed(Speed2x())
+/**
+ * Draws attack lines for all melee minions that are currently attacking.
+ * @param minions - List of all minions (used for iteration and target lookup)
+ * @param gameTime - Current game time to check attack windows
+ * @effect Render - Draws lines to the screen
+ */
+def drawMinionAttacks(minions: List[Minion], gameTime: Double): Unit / Render = {
+  listForEach(minions) { m =>
+    m.minionType match {
+      case Melee() => 
+        val timeSinceAttack = gameTime - m.lastAttackTime
+        // Attack animation window: 0.0 to 0.15s after attack
+        if (m.targetId >= 0 && timeSinceAttack < 0.15 && timeSinceAttack >= 0.0) {
+           val targetOpt = listFind(minions) { t => t.id == m.targetId }
+           targetOpt match {
+             case Some(target) => 
+               do drawMinionAttack(m, target)
+             case None() => ()
+           }
+        }
+      case _ => ()
     }
   }
 }
 
+/**
+ * Handles keyboard input to control game state and tools.
+ * @effect State - Reads and modifies game state (pause, speed, tools)
+ * @effect Input - Checks for key presses
+ */
+def handleKeyboardInput(): Unit / {State, Input} = {
+  val state = do getState()
+  
+  if (do wasKeyJustPressed(" ")) {
+    setPaused(not(state.isPaused))
+  }
+  
+  if (do wasKeyJustPressed("1")) {
+    setSpeed(Speed1x())
+  }
+  if (do wasKeyJustPressed("2")) {
+    setSpeed(Speed2x())
+  }
+  if (do wasKeyJustPressed("3")) {
+    setSpeed(Speed4x())
+  }
+  
+  if (do wasKeyJustPressed("q")) {
+    setSelectedTool(LastHitTool())
+  }
+  if (do wasKeyJustPressed("w")) {
+    setSelectedTool(AoETool())
+  }
+  if (do wasKeyJustPressed("e")) {
+    setSelectedTool(KillCastersTool())
+  }
+  if (do wasKeyJustPressed("r")) {
+    setSelectedTool(FullClearTool())
+  }
+  if (do wasKeyJustPressed("t")) {
+    setSelectedTool(TankTool())
+  }
+  if (do wasKeyJustPressed("Escape")) {
+    setSelectedTool(NoTool())
+    setTankPosition(Vec2(0.0, 0.0), false)
+  }
+}
+
+/**
+ * Main game loop step calling input handling, simulation and rendering.
+ * @param deltaTime - Time since last frame
+ * @effect State - Modifies game state
+ * @effect Time - Advances time
+ * @effect Render - Draws the game
+ * @effect Input - Handles input
+ */
 def gameLoopStep(deltaTime: Double): Unit / {State, Time, Render, Input} = {
+  // Handle mouse clicks (Tool Usage)
+  if (wasClicked()) {
+    handleToolClick(getSelectedTool(), getMousePosition())
+  }
+
   handleKeyboardInput()
   
   simulationStep(deltaTime)

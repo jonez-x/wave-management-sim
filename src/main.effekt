@@ -1,22 +1,21 @@
 module main
-
-// ============================================================
-// Wave Management Simulator - Main Entry Point
-// Minimal JS bridge - all logic in Effekt
-// ============================================================
-
-import src/ffi/canvas
 import src/ffi/events
+import src/ffi/canvas
 import src/types
+import src/utils/math
+import src/utils/lists
+import src/utils/game
+import src/tools/utils
 import src/effects
 import src/handlers
 import src/game/minion
+import src/game/turret
 import src/game/combat
 import src/game/wave
+import src/game/state
 import src/tools/dispatcher
-
-// ============ FFI FOR ANIMATION FRAME ============
-// Minimal JS - only for requestAnimationFrame timing
+import src/helpers
+import src/game/simulation
 
 extern js """
   // Global state storage
@@ -57,8 +56,6 @@ extern js """
       
       // Call the registered game step function using Effekt runtime
       if (window.$doGameStep) {
-        // We must use runToplevel because we are calling back from JS into Effekt
-        // and need to set up the trampoline/runtime environment
         $effekt.runToplevel(window.$doGameStep);
       }
       
@@ -100,600 +97,58 @@ extern def startLoop(): Unit =
 extern def stopLoop(): Unit =
   js "$stopLoop()"
 
-// Individual game step functions - called directly by JS
-// These read state from global, process, and write back
-
-extern js """
-  function $gameStepHandleInput() {
-    if (!$hasState()) return;
-    let state = $loadState();
-    // Input handling will be done inline in JS by reading keyboard state
-    // and calling Effekt's handleInput if needed
-    // For now, just check for space key
-    if (window.$keyJustPressed && window.$keyJustPressed[' ']) {
-      state = { ...state, isPaused: !state.isPaused };
-    }
-    $saveState(state);
-  }
-  
-  function $gameStepUpdate(dt) {
-    // Update is complex - we'll call the Effekt function
-    // For now, this is a placeholder - we need to find a way
-    // to call the Effekt-compiled updateGameLogic
-  }
-  
-  function $gameStepRender() {
-    // Render is complex - we'll need to call Effekt rendering
-    // For now, this is a placeholder
-  }
-"""
-
-// ============ RENDERING (all in Effekt) ============
-
-def drawBackground(): Unit = {
-  // Dark background
-  setFillColor(30, 35, 40, 1.0)
-  fillRect(0.0, 0.0, CANVAS_WIDTH.toDouble, CANVAS_HEIGHT.toDouble)
-  
-  // Gesamte Lane - äußerer Bereich (Gras)
-  setFillColor(35, 50, 35, 1.0)
-  fillRect(LANE_START_X, LANE_MIN_Y, LANE_END_X - LANE_START_X, LANE_HEIGHT)
-  
-  // Spawn-Zonen hinter den Türmen - leicht blau/rot gefärbt
-  // Blaue Spawn-Zone (links hinter blauem Turm)
-  setFillColor(30, 50, 70, 0.6)
-  fillRect(LANE_START_X, LANE_MIN_Y, BLUE_TURRET_X - LANE_START_X, LANE_HEIGHT)
-  
-  // Rote Spawn-Zone (rechts hinter rotem Turm)
-  setFillColor(70, 40, 40, 0.6)
-  fillRect(RED_TURRET_X, LANE_MIN_Y, LANE_END_X - RED_TURRET_X, LANE_HEIGHT)
-  
-  // Haupt-Lane-Bereich zwischen den Türmen (Kampfzone)
-  val innerPadding = 25.0
-  setFillColor(55, 50, 40, 1.0)
-  fillRect(BLUE_TURRET_X, LANE_MIN_Y + innerPadding, RED_TURRET_X - BLUE_TURRET_X, LANE_HEIGHT - innerPadding * 2.0)
-  
-  // Mittellinie
-  setStrokeColor(255, 255, 255, 0.12)
-  setLineWidth(1.0)
-  drawLine(LANE_START_X, LANE_Y, LANE_END_X, LANE_Y)
-  
-  // Turm-Linien (wo die Türme stehen)
-  setStrokeColor(100, 100, 200, 0.4)
-  setLineWidth(2.0)
-  drawLine(BLUE_TURRET_X, LANE_MIN_Y, BLUE_TURRET_X, LANE_MAX_Y)
-  setStrokeColor(200, 100, 100, 0.4)
-  drawLine(RED_TURRET_X, LANE_MIN_Y, RED_TURRET_X, LANE_MAX_Y)
-  
-  // Lane Boundaries - Sichtbare Begrenzungen
-  setStrokeColor(200, 100, 50, 0.7)
-  setLineWidth(3.0)
-  drawLine(LANE_START_X, LANE_MIN_Y, LANE_END_X, LANE_MIN_Y)  // Obere Grenze
-  drawLine(LANE_START_X, LANE_MAX_Y, LANE_END_X, LANE_MAX_Y)  // Untere Grenze
-  drawLine(LANE_START_X, LANE_MIN_Y, LANE_START_X, LANE_MAX_Y)  // Linke Grenze
-  drawLine(LANE_END_X, LANE_MIN_Y, LANE_END_X, LANE_MAX_Y)      // Rechte Grenze
-}
-
-def drawTurretEntity(turret: Turret): Unit = {
-  if (not(turret.isAlive)) {
-    ()
-  } else {
-    val size = 35.0
-    val x = turret.position.x
-    val y = turret.position.y
-    
-    // Turret Range Indikator - sichtbarer Bereich
-    turret.team match {
-      case Blue() => setStrokeColor(80, 150, 220, 0.3)
-      case Red() => setStrokeColor(220, 100, 100, 0.3)
-    }
-    setLineWidth(2.0)
-    strokeCircle(x, y, TURRET_STATS.attackRange)
-    
-    // Turret Range Fill (sehr transparent)
-    turret.team match {
-      case Blue() => setFillColor(80, 150, 220, 0.08)
-      case Red() => setFillColor(220, 100, 100, 0.08)
-    }
-    fillCircle(x, y, TURRET_STATS.attackRange)
-    
-    // Turret-Körper
-    turret.team match {
-      case Blue() => setFillColor(30, 100, 180, 1.0)
-      case Red() => setFillColor(180, 50, 50, 1.0)
-    }
-    fillRect(x - size / 2.0, y - size / 2.0, size, size)
-    
-    // Turret-Inneres
-    turret.team match {
-      case Blue() => setFillColor(50, 150, 220, 1.0)
-      case Red() => setFillColor(220, 80, 80, 1.0)
-    }
-    fillRect(x - size / 4.0, y - size / 4.0, size / 2.0, size / 2.0)
-    
-    // Health Bar
-    val barWidth = 40.0
-    val barHeight = 4.0
-    val barY = y - size / 2.0 - 10.0
-    val ratio = turret.currentHp / TURRET_STATS.maxHp
-    
-    setFillColor(20, 20, 20, 0.8)
-    fillRect(x - barWidth / 2.0 - 1.0, barY - 1.0, barWidth + 2.0, barHeight + 2.0)
-    
-    turret.team match {
-      case Blue() => setFillColor(80, 150, 220, 1.0)
-      case Red() => setFillColor(220, 80, 80, 1.0)
-    }
-    fillRect(x - barWidth / 2.0, barY, barWidth * ratio, barHeight)
-  }
-}
-
-def drawMinionEntity(minion: Minion): Unit = {
-  if (not(minion.isAlive)) {
-    ()
-  } else {
-    val x = minion.position.x
-    val y = minion.position.y
-    val radius = getMinionRadius(minion.minionType)
-    
-    minion.team match {
-      case Blue() => 
-        minion.minionType match {
-          case Melee() => setFillColor(50, 120, 200, 1.0)
-          case Caster() => setFillColor(80, 150, 230, 1.0)
-          case Cannon() => setFillColor(30, 90, 170, 1.0)
-        }
-      case Red() =>
-        minion.minionType match {
-          case Melee() => setFillColor(200, 60, 60, 1.0)
-          case Caster() => setFillColor(230, 90, 90, 1.0)
-          case Cannon() => setFillColor(170, 40, 40, 1.0)
-        }
-    }
-    
-    fillCircle(x, y, radius)
-    
-    minion.minionType match {
-      case Cannon() =>
-        setStrokeColor(255, 215, 0, 0.8)
-        setLineWidth(2.0)
-        strokeCircle(x, y, radius)
-      case _ => ()
-    }
-    
-    val barWidth = radius * 2.0 + 4.0
-    val barHeight = 3.0
-    val barY = y - radius - 6.0
-    val ratio = minion.currentHp / minion.stats.maxHp
-    
-    setFillColor(20, 20, 20, 0.8)
-    fillRect(x - barWidth / 2.0, barY, barWidth, barHeight)
-    
-    if (ratio > 0.6) {
-      setFillColor(60, 180, 60, 1.0)
-    } else {
-      if (ratio > 0.3) {
-        setFillColor(220, 180, 40, 1.0)
-      } else {
-        setFillColor(200, 50, 50, 1.0)
-      }
-    }
-    fillRect(x - barWidth / 2.0, barY, barWidth * ratio, barHeight)
-  }
-}
-
-def drawProjectileEntity(p: Projectile): Unit = {
-  if (p.isTurret) {
-    // Turret-Projektile: Groß, orange/gelb mit Glow-Effekt
-    setFillColor(255, 150, 50, 0.4)
-    fillCircle(p.position.x, p.position.y, 14.0)  // Glow
-    setFillColor(255, 200, 50, 1.0)
-    fillCircle(p.position.x, p.position.y, 8.0)   // Core
-    setFillColor(255, 255, 200, 1.0)
-    fillCircle(p.position.x, p.position.y, 4.0)   // Center
-  } else if (p.isCaster) {
-    // Caster-Projektile: Klein, hell
-    setFillColor(255, 255, 200, 1.0)
-    fillCircle(p.position.x, p.position.y, 4.0)
-  } else {
-    // Cannon-Projektile: Mittelgroß, dunkel
-    setFillColor(50, 50, 50, 1.0)
-    fillCircle(p.position.x, p.position.y, 6.0)
-  }
-}
-
-def drawAttackLineEntity(from: Vec2, to: Vec2, team: Team): Unit = {
-  val centerX = to.x
-  val centerY = to.y
-  
-  team match {
-    case Blue() => setStrokeColor(200, 220, 255, 0.9)
-    case Red() => setStrokeColor(255, 200, 200, 0.9)
-  }
-  setLineWidth(2.0)
-  
-  drawLine(centerX - 10.0, centerY - 10.0, centerX + 10.0, centerY + 10.0)
-  
-  drawLine(centerX - 8.0, centerY - 8.0, centerX + 8.0, centerY + 8.0)
-  drawLine(centerX - 4.0, centerY + 4.0, centerX + 4.0, centerY - 4.0)
-  
-  team match {
-    case Blue() => setFillColor(100, 180, 255, 0.5)
-    case Red() => setFillColor(255, 100, 100, 0.5)
-  }
-  fillCircle(centerX, centerY, 15.0)
-}
-
-def findMinion(minions: List[Minion], id: Int): Option[Minion] = {
-  listFind(minions) { m => m.id == id }
-}
-
-def drawAllMinions(minions: List[Minion], allMinions: List[Minion], currentTime: Double): Unit = {
-  minions match {
-    case Nil() => ()
-    case Cons(m, rest) =>
-      drawMinionEntity(m)
-      
-      m.minionType match {
-        case Melee() => 
-          val timeSinceAttack = currentTime - m.lastAttackTime
-          if (m.targetId >= 0 && timeSinceAttack < 0.15 && timeSinceAttack >= 0.0) {
-             val targetOpt = findMinion(allMinions, m.targetId)
-             targetOpt match {
-               case Some(target) => 
-                 drawAttackLineEntity(m.position, target.position, m.team)
-               case None() => ()
-             }
-          }
-        case _ => ()
-      }
-      
-      drawAllMinions(rest, allMinions, currentTime)
-  }
-}
-
-def drawUI(state: GameState): Unit = {
-  setFont("bold 14px Arial")
-  setFillColor(200, 170, 110, 1.0)
-  setTextAlign("left")
-  
-  val totalSec = state.gameTime.toInt
-  val mins = totalSec / 60
-  val secs = modulo(totalSec, 60)
-  val timeStr = show(mins) ++ ":" ++ (if (secs < 10) "0" else "") ++ show(secs)
-  fillText("Time: " ++ timeStr, 15.0, 25.0)
-  
-  fillText("Wave: " ++ show(state.waveNumber), 15.0, 45.0)
-  
-  val blueCount = countTeamMinions(state.minions, Blue())
-  val redCount = countTeamMinions(state.minions, Red())
-  
-  setFont("12px Arial")
-  setFillColor(80, 140, 200, 1.0)
-  fillText("Blue: " ++ show(blueCount), 15.0, 65.0)
-  setFillColor(200, 80, 80, 1.0)
-  fillText("Red: " ++ show(redCount), 80.0, 65.0)
-  
-  setTextAlign("right")
-  setFillColor(200, 170, 110, 1.0)
-  setFont("bold 14px Arial")
-  fillText("Speed: " ++ speedName(state.speed), CANVAS_WIDTH.toDouble - 15.0, 25.0)
-  
-  if (state.isPaused) {
-    setFont("bold 24px Arial")
-    setFillColor(255, 200, 100, 0.9)
-    setTextAlign("center")
-    fillText("PAUSED", CANVAS_WIDTH.toDouble / 2.0, CANVAS_HEIGHT.toDouble / 2.0)
-    setFont("14px Arial")
-    setFillColor(200, 200, 200, 0.8)
-    fillText("Press SPACE to resume", CANVAS_WIDTH.toDouble / 2.0, CANVAS_HEIGHT.toDouble / 2.0 + 25.0)
-  }
-}
-
-def countTeamMinions(minions: List[Minion], team: Team): Int = {
-  minions match {
-    case Nil() => 0
-    case Cons(m, rest) =>
-      if (m.isAlive) {
-        val same = m.team match {
-          case Blue() => team match { case Blue() => true case Red() => false }
-          case Red() => team match { case Blue() => false case Red() => true }
-        }
-        if (same) 1 + countTeamMinions(rest, team)
-        else countTeamMinions(rest, team)
-      } else {
-        countTeamMinions(rest, team)
-      }
-  }
-}
-
-def drawVisualEffect(vfx: VisualEffect, currentTime: Double): Unit = {
-  val elapsed = currentTime - vfx.startTime
-  val progress = elapsed / vfx.duration
-  val alpha = maxDouble(0.0, 1.0 - progress)
-  
-  vfx.effectType match {
-    case ClickRipple() =>
-      val expandedRadius = vfx.radius * (1.0 + progress * 0.5)
-      setStrokeColor(255, 255, 255, alpha * 0.6)
-      setLineWidth(2.0)
-      strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
-      
-    case AoeExplosion() =>
-      val expandedRadius = vfx.radius * (0.8 + progress * 0.4)
-      setStrokeColor(255, 180, 50, alpha * 0.8)
-      setLineWidth(3.0)
-      strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
-      setFillColor(255, 200, 50, alpha * 0.2)
-      fillCircle(vfx.position.x, vfx.position.y, expandedRadius)
-      
-    case LastHitMarker() =>
-      setFillColor(255, 215, 0, alpha)
-      val size = 8.0 * (1.0 - progress * 0.3)
-      fillCircle(vfx.position.x, vfx.position.y - (progress * 15.0), size)
-      setFont("bold 14px Arial")
-      setTextAlign("center")
-      fillText("+", vfx.position.x, vfx.position.y - 10.0 - (progress * 20.0))
-      
-    case KillMarker() =>
-      setStrokeColor(255, 50, 50, alpha)
-      setLineWidth(3.0)
-      val size = 10.0 * (1.0 - progress * 0.2)
-      drawLine(vfx.position.x - size, vfx.position.y - size, vfx.position.x + size, vfx.position.y + size)
-      drawLine(vfx.position.x + size, vfx.position.y - size, vfx.position.x - size, vfx.position.y + size)
-      
-    case TankActivation() =>
-      val expandedRadius = 25.0 * (1.0 + progress * 0.5)
-      setStrokeColor(50, 255, 100, alpha * 0.8)
-      setLineWidth(3.0)
-      strokeCircle(vfx.position.x, vfx.position.y, expandedRadius)
-      setFillColor(50, 255, 100, alpha * 0.15)
-      fillCircle(vfx.position.x, vfx.position.y, expandedRadius)
-  }
-}
-
-def drawVisualEffects(effects: List[VisualEffect], currentTime: Double): Unit = {
-  effects match {
-    case Nil() => ()
-    case Cons(vfx, rest) =>
-      drawVisualEffect(vfx, currentTime)
-      drawVisualEffects(rest, currentTime)
-  }
-}
 
 /**
- * Draw tank indicator when tanking is active.
- * Shows a shield icon with pulsing aggro range.
+ * The Bridge: Logic called by JS, wrapping Effect Handlers around it.
  */
-def drawTankIndicator(state: GameState): Unit = {
-  if (state.isPlayerTanking) {
-    val x = state.tankPosition.x
-    val y = state.tankPosition.y
-    val aggroRange = 400.0  // Same as tankAggroRange in minion.effekt
-    
-    // Pulsing effect based on game time
-    val pulse = 0.8 + 0.2 * modDouble(state.gameTime * 3.0, 1.0)
-    
-    // Aggro range circle (pulsing)
-    setStrokeColor(50, 255, 100, 0.3 * pulse)
-    setLineWidth(2.0)
-    strokeCircle(x, y, aggroRange)
-    
-    // Inner glow
-    setFillColor(50, 255, 100, 0.15 * pulse)
-    fillCircle(x, y, 35.0)
-    
-    // Shield shape - draw as polygon lines
-    // Top curved part
-    setFillColor(30, 180, 80, 0.95)
-    setStrokeColor(50, 255, 100, 1.0)
-    setLineWidth(3.0)
-    
-    // Shield body (approximated with lines forming a shield shape)
-    // Top left corner
-    drawLine(x - 15.0, y - 18.0, x - 18.0, y - 5.0)
-    // Left side going down
-    drawLine(x - 18.0, y - 5.0, x - 12.0, y + 12.0)
-    // Bottom left to center point
-    drawLine(x - 12.0, y + 12.0, x, y + 22.0)
-    // Bottom center to right
-    drawLine(x, y + 22.0, x + 12.0, y + 12.0)
-    // Right side going up
-    drawLine(x + 12.0, y + 12.0, x + 18.0, y - 5.0)
-    // Top right corner
-    drawLine(x + 18.0, y - 5.0, x + 15.0, y - 18.0)
-    // Top edge
-    drawLine(x + 15.0, y - 18.0, x - 15.0, y - 18.0)
-    
-    // Fill shield center
-    setFillColor(40, 200, 100, 0.9)
-    fillCircle(x, y, 12.0)
-    
-    // Shield emblem (star/diamond in center)
-    setFillColor(255, 255, 255, 0.9)
-    // Diamond shape
-    drawLine(x, y - 8.0, x + 6.0, y)
-    drawLine(x + 6.0, y, x, y + 8.0)
-    drawLine(x, y + 8.0, x - 6.0, y)
-    drawLine(x - 6.0, y, x, y - 8.0)
-    
-    // "TANKING" text above
-    setFont("bold 12px Arial")
-    setFillColor(50, 255, 100, 1.0)
-    setTextAlign("center")
-    fillText("TANKING", x, y - 35.0)
-  }
-}
-
-def renderGame(state: GameState): Unit = {
-  clearCanvas()
-  drawBackground()
-  drawTurretEntity(state.blueTurret)
-  drawTurretEntity(state.redTurret)
-  drawAllMinions(state.minions, state.minions, state.gameTime)
-  
-  listForEach(state.projectiles) { p =>
-    drawProjectileEntity(p)
-  }
-  
-  // Draw tank indicator if active
-  drawTankIndicator(state)
-  
-  drawVisualEffects(state.visualEffects, state.gameTime)
-  
-  drawUI(state)
-}
-
-def removeDeadMinions(minions: List[Minion]): List[Minion] = {
-  listFilter(minions) { m => m.isAlive }
-}
-
-def updateSpeed(s: GameState, sp: SimulationSpeed): GameState = {
-  GameState(
-    s.minions, s.blueTurret, s.redTurret, s.gameTime, s.waveNumber, s.nextSpawnTime,
-    s.isPaused, sp, s.selectedTool, s.nextEntityId, s.waveState, s.isPlayerTanking, s.tankPosition, s.projectiles, s.pendingSpawns, s.visualEffects
-  )
-}
-
-def updateTool(s: GameState, t: Tool): GameState = {
-  GameState(
-    s.minions, s.blueTurret, s.redTurret, s.gameTime, s.waveNumber, s.nextSpawnTime,
-    s.isPaused, s.speed, t, s.nextEntityId, s.waveState, s.isPlayerTanking, s.tankPosition, s.projectiles, s.pendingSpawns, s.visualEffects
-  )
-}
-
-def updateToolAndTank(s: GameState, t: Tool, tanking: Bool): GameState = {
-  GameState(
-    s.minions, s.blueTurret, s.redTurret, s.gameTime, s.waveNumber, s.nextSpawnTime,
-    s.isPaused, s.speed, t, s.nextEntityId, s.waveState, tanking, s.tankPosition, s.projectiles, s.pendingSpawns, s.visualEffects
-  )
-}
-
-def handleKeyboardTools(state: GameState): GameState = {
-
-  if (wasKeyJustPressed("1")) updateSpeed(state, Speed1x())
-  else if (wasKeyJustPressed("2")) updateSpeed(state, Speed2x())
-  else if (wasKeyJustPressed("3")) updateSpeed(state, Speed4x())
-  else if (wasKeyJustPressed("q")) updateTool(state, LastHitTool())
-  else if (wasKeyJustPressed("w")) updateTool(state, AoETool())
-  else if (wasKeyJustPressed("e")) updateTool(state, KillCastersTool())
-  else if (wasKeyJustPressed("r")) updateTool(state, FullClearTool())
-  else if (wasKeyJustPressed("t")) updateTool(state, TankTool())
-  else if (wasKeyJustPressed("Escape")) updateToolAndTank(state, NoTool(), false)
-  else state
-}
-
-def handleInput(state: GameState): GameState = {
-  if (wasKeyJustPressed(" ")) {
-    GameState(
-      state.minions, state.blueTurret, state.redTurret, state.gameTime,
-      state.waveNumber, state.nextSpawnTime, not(state.isPaused),
-      state.speed, state.selectedTool, state.nextEntityId,
-      state.waveState, state.isPlayerTanking, state.tankPosition, state.projectiles, state.pendingSpawns, state.visualEffects
-    )
-  } else {
-    state
-  }
-}
-
-def updateGameLogic(state: GameState, dt: Double): GameState = {
-  if (state.isPaused) {
-    state
-  } else {
-    val speedMult = speedMultiplier(state.speed)
-    val adjustedDt = dt * speedMult
-    val newTime = state.gameTime + adjustedDt
-    
-    val scheduleResult = checkAndScheduleWaves(
-      newTime, state.nextSpawnTime, state.waveNumber, state.pendingSpawns
-    )
-    
-    scheduleResult match {
-      case (updatedPending, newWave, newNextSpawn) =>
-        
-        val (minionsAfterSpawn, remainingPending, newNextId) = processPendingSpawns(
-          updatedPending, state.minions, state.nextEntityId, newTime
-        )
-
-        val movedMinions = updateAllMinions(
-          minionsAfterSpawn, state.blueTurret, state.redTurret,
-          adjustedDt, newTime, state.isPlayerTanking, state.tankPosition
-        )
-        
-        val combatResult = processCombat(
-          movedMinions, state.blueTurret, state.redTurret,
-          state.projectiles, newNextId, newTime, adjustedDt
-        )
-        
-        combatResult match {
-          case (afterCombat, newBlue, newRed, newProjectiles, finalNextId) =>
-            val alive = removeDeadMinions(afterCombat)
-            
-            val newWaveState = if (newWave > state.waveNumber) Neutral() else state.waveState
-            
-            val activeEffects = listFilter(state.visualEffects) { vfx =>
-              (newTime - vfx.startTime) < vfx.duration
-            }
-            
-            GameState(
-              alive, newBlue, newRed, newTime, newWave, newNextSpawn,
-              state.isPaused, state.speed, state.selectedTool, finalNextId,
-              newWaveState, state.isPlayerTanking, state.tankPosition,
-              newProjectiles, remainingPending, activeEffects
-            )
-        }
-    }
-  }
-}
-
 def processFrameImpl(): Unit = {
   val dt = getDeltaTime()
   val state = loadState()
   
-  if (wasMouseClicked()) {
-    val clickPos = Vec2(getMouseX(), getMouseY())
-    
-    val (_, stateAfterClick) = withMockState(state) {
-      handleToolClick(state.selectedTool, clickPos)
-    }
-    saveState(stateAfterClick)
+  // We use withMockState here effectively as a "Transient State Handler"
+  val (_, finalState) = withMockState(state) {
+     withCanvasRenderer {
+       withBrowserInput {
+         // simulationStep and gameLoopStep require the Time effect
+         withTime(state.gameTime, state.speed) {
+            
+            // 2. Run the main simulation loop (Keyboard Input + Logic + Render)
+            gameLoopStep(dt)
+         }
+       }
+     }
   }
   
-  val state2 = loadState()
-  
-  val afterInput = handleInput(state2)
-  
-  val finalState = handleKeyboardTools(afterInput)
-  
-  val updated = updateGameLogic(finalState, dt)
-  
-  saveState(updated)
-  
-  renderGame(updated)
+  saveState(finalState)
 }
 
 def main(): Unit = {
   val canvasId = "gameCanvas"
   
-  if (initCanvas(canvasId, CANVAS_WIDTH, CANVAS_HEIGHT)) {
-    initEvents(canvasId)
+  initCanvas(canvasId, CANVAS_WIDTH, CANVAS_HEIGHT)
+  initEvents(canvasId)
     
-    val initial = createInitialState()
-    
-    val state = GameState(
-      initial.minions, initial.blueTurret, initial.redTurret, 0.0, 0, initial.nextSpawnTime,
-      false, Speed1x(), NoTool(), initial.nextEntityId, Neutral(), false, Vec2(0.0, 0.0), Nil(), Nil(), Nil()
-    )
-        
-    saveState(state)
-    renderGame(state)
-    
-    setDoGameStep { processFrameImpl() }
-    
-    startLoop()
-    
-    println("Game started with Effekt logic!")
-  } else {
-    println("Failed to initialize canvas!")
+  // Check if we already have a state (hot reload) or valid state? 
+  // For now always re-init on main() call usually means page reload.
+  val initial = createInitialState()
+  
+  val state = GameState(
+    initial.minions, initial.blueTurret, initial.redTurret, 0.0, 0, initial.nextSpawnTime,
+    false, Speed1x(), NoTool(), initial.nextEntityId, Neutral(), false, Vec2(0.0, 0.0), Nil(), Nil(), Nil()
+  )
+      
+  saveState(state)
+  
+  // Initial Render
+  val (_, _) = withMockState(state) {
+      withCanvasRenderer {
+        withMockInput(Vec2(0.0,0.0), false, Nil()) {
+           // Reuse the render function from simulation
+           renderGame()
+        }
+      }
   }
+  
+  setDoGameStep { processFrameImpl() }
+  startLoop()
 }

@@ -248,23 +248,17 @@
     }
   </script>
 
-  <!-- Compiled Effekt code - ALL game logic is in here -->
   <script src="out/main.js"></script>
   <script>
-    // Minimal JS bridge - only initialization
-    // ALL game logic, rendering, combat, movement is in Effekt!
     try {
       if (typeof $main !== 'undefined' && typeof $main.main === 'function') {
         $main.main();
         setStatus('Simulation active • Press SPACE to pause');
-        console.log('Effekt game started - all logic in Effekt!');
       } else {
         setStatus('Error: Game module not found', true);
-        console.error('$main:', typeof $main);
       }
     } catch (e) {
       setStatus('Error: ' + e.message, true);
-      console.error('Error:', e);
     }
   </script>
 </body>

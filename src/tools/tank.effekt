@@ -1,6 +1,7 @@
 module src/tools/tank
 
 import src/types
+import src/utils/math
 import src/effects
 
 /**

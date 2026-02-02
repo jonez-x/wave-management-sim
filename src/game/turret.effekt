@@ -1,0 +1,22 @@
+module src/game/turret
+
+import src/types
+import src/utils/math
+
+/**
+ * Creates a new turret entity.
+ * @param id - Unique identifier for the turret
+ * @param team - Team the turret belongs to
+ * @param pos - Position of the turret
+ * @return A new Turret record
+ */
+def createTurret(id: Int, team: Team, pos: Vec2): Turret =
+  Turret(
+    id = id,
+    team = team,
+    position = pos,
+    currentHp = TURRET_STATS.maxHp,
+    targetId = -1,
+    lastAttackTime = 0.0,
+    isAlive = true
+  )

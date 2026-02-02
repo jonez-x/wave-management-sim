@@ -1,0 +1,18 @@
+module src/tools/utils
+
+import src/types
+
+/**
+ * Returns the display name of a tool.
+ * @param tool - The tool
+ * @return String representation of the tool name
+ */
+def toolName(tool: Tool): String =
+  tool match {
+    case LastHitTool() => "Last Hit"
+    case AoETool() => "AoE Damage"
+    case KillCastersTool() => "Kill Casters"
+    case FullClearTool() => "Full Clear"
+    case TankTool() => "Tank"
+    case NoTool() => "None"
+  }

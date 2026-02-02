@@ -1,6 +1,8 @@
 module src/tools/lasthit
 
 import src/types
+import src/utils/math
+import src/utils/lists
 import src/effects
 
 /**

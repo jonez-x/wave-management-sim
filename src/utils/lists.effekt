@@ -1,0 +1,77 @@
+module src/utils/lists
+
+/**
+ * Calculates the length of a list.
+ * @param list - The input list
+ * @return The number of elements in the list
+ */
+def listLength[A](list: List[A]): Int =
+  list match {
+    case Nil() => 0
+    case Cons(_, rest) => 1 + listLength(rest)
+  }
+
+/**
+ * Filters a list based on a predicate.
+ * @param list - The input list
+ * @param pred - The predicate function returning true to keep an element
+ * @return A new list containing only elements that satisfy the predicate
+ */
+def listFilter[A](list: List[A]) { pred: A => Bool }: List[A] =
+  list match {
+    case Nil() => Nil()
+    case Cons(x, rest) =>
+      if (pred(x)) Cons(x, listFilter(rest) { a => pred(a) })
+      else listFilter(rest) { a => pred(a) }
+  }
+
+/**
+ * Maps a function over a list.
+ * @param list - The input list
+ * @param f - The mapping function
+ * @return A new list with transformed elements
+ */
+def listMap[A, B](list: List[A]) { f: A => B }: List[B] =
+  list match {
+    case Nil() => Nil()
+    case Cons(x, rest) => Cons(f(x), listMap(rest) { a => f(a) })
+  }
+
+/**
+ * Iterates over a list and applies a function to each element.
+ * @param list - The input list
+ * @param f - The function to apply (for side effects)
+ */
+def listForEach[A](list: List[A]) { f: A => Unit }: Unit =
+  list match {
+    case Nil() => ()
+    case Cons(x, rest) =>
+      f(x)
+      listForEach(rest) { a => f(a) }
+  }
+
+/**
+ * Finds the first element satisfying a predicate.
+ * @param list - The input list
+ * @param pred - The predicate function
+ * @return Some(element) if found, None() otherwise
+ */
+def listFind[A](list: List[A]) { pred: A => Bool }: Option[A] =
+  list match {
+    case Nil() => None()
+    case Cons(x, rest) =>
+      if (pred(x)) Some(x)
+      else listFind(rest) { a => pred(a) }
+  }
+
+/**
+ * Appends two lists.
+ * @param list1 - The first list
+ * @param list2 - The second list
+ * @return Multi-element list containing elements of list1 followed by list2
+ */
+def listAppend[A](list1: List[A], list2: List[A]): List[A] =
+  list1 match {
+    case Nil() => list2
+    case Cons(x, rest) => Cons(x, listAppend(rest, list2))
+  }

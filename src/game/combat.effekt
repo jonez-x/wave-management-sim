@@ -1,6 +1,8 @@
 module src/game/combat
 
 import src/types
+import src/utils/math
+import src/utils/lists
 import src/effects
 
 /**
@@ -342,18 +344,16 @@ def processTurretCombat(minions: List[Minion], blueTurret: Turret, redTurret: Tu
   var newProjectiles = projectiles
   var currentNextId = nextId
   
-  // Blue turret shoots
   if (blueTurret.isAlive && turretCanAttack(blueTurret, currentTime)) {
     val targetOpt = findTurretTarget(blueTurret, minions)
     targetOpt match {
       case None() => ()
       case Some(target) =>
-        // Spawn turret projectile
         val projId = currentNextId
         currentNextId = currentNextId + 1
         val proj = Projectile(
           projId, blueTurret.position, target.id, TURRET_STATS.attackDamage,
-          600.0, false, true, target.position  // isTurret = true
+          600.0, false, true, target.position
         )
         newProjectiles = Cons(proj, newProjectiles)
         
@@ -369,18 +369,16 @@ def processTurretCombat(minions: List[Minion], blueTurret: Turret, redTurret: Tu
     }
   }
   
-  // Red turret shoots
   if (redTurret.isAlive && turretCanAttack(redTurret, currentTime)) {
     val targetOpt = findTurretTarget(redTurret, minions)
     targetOpt match {
       case None() => ()
       case Some(target) =>
-        // Spawn turret projectile
         val projId = currentNextId
         currentNextId = currentNextId + 1
         val proj = Projectile(
           projId, redTurret.position, target.id, TURRET_STATS.attackDamage,
-          600.0, false, true, target.position  // isTurret = true
+          600.0, false, true, target.position
         )
         newProjectiles = Cons(proj, newProjectiles)
         
@@ -424,7 +422,6 @@ def processCombat(minions: List[Minion], blueTurret: Turret, redTurret: Turret,
   
   turretResult match {
     case (newBlue, newRed) =>
-      // Process turret attacks - now spawns projectiles
       val (finalBlue, finalRed, turretProjectiles, finalNextId) = processTurretCombat(
         afterCombatMinions, newBlue, newRed, allProjectiles, combatNextId, currentTime
       )

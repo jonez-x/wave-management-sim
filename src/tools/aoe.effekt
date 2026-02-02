@@ -1,6 +1,8 @@
 module src/tools/aoe
 
 import src/types
+import src/utils/math
+import src/utils/lists
 import src/effects
 import src/game/combat
 

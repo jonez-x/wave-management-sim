@@ -1,0 +1,34 @@
+module src/game/state
+
+import src/types
+import src/utils/math
+import src/game/turret
+
+/**
+ * Creates the initial game state.
+ * Initializes turrets, empty lists, and default values.
+ * @return The initial GameState
+ */
+def createInitialState(): GameState = {
+  val blueTurret = createTurret(0, Blue(), Vec2(BLUE_TURRET_X, LANE_Y))
+  val redTurret = createTurret(1, Red(), Vec2(RED_TURRET_X, LANE_Y))
+  
+  GameState(
+    minions = Nil(),
+    blueTurret = blueTurret,
+    redTurret = redTurret,
+    gameTime = 0.0,
+    waveNumber = 0,
+    nextSpawnTime = 0.0,
+    isPaused = false,
+    speed = Speed1x(),
+    selectedTool = NoTool(),
+    nextEntityId = 2,
+    waveState = Neutral(),
+    isPlayerTanking = false,
+    tankPosition = Vec2(0.0, 0.0),
+    projectiles = Nil(),
+    pendingSpawns = Nil(),
+    visualEffects = Nil()
+  )
+}

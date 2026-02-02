@@ -1,0 +1,140 @@
+module src/utils/math
+
+/**
+ * 2D Vector representation.
+ * @param x - X coordinate
+ * @param y - Y coordinate
+ */
+record Vec2(x: Double, y: Double)
+
+/**
+ * Adds two vectors.
+ * @param v1 - First vector
+ * @param v2 - Second vector
+ * @return Sum of vectors
+ */
+def add(v1: Vec2, v2: Vec2): Vec2 =
+  Vec2(v1.x + v2.x, v1.y + v2.y)
+
+/**
+ * Subtracts the second vector from the first.
+ * @param v1 - Vector to subtract from
+ * @param v2 - Vector to subtract
+ * @return Difference of vectors
+ */
+def sub(v1: Vec2, v2: Vec2): Vec2 =
+  Vec2(v1.x - v2.x, v1.y - v2.y)
+
+/**
+ * Scales a vector by a scalar.
+ * @param v - Vector to scale
+ * @param s - Scalar value
+ * @return Scaled vector
+ */
+def scale(v: Vec2, s: Double): Vec2 =
+  Vec2(v.x * s, v.y * s)
+
+/**
+ * Calculates the magnitude (length) of a vector.
+ * @param v - The vector
+ * @return Magnitude of the vector
+ */
+def magnitude(v: Vec2): Double = {
+  val sq = v.x * v.x + v.y * v.y
+  sqrt(sq)
+}
+
+/**
+ * Normalizes a vector to unit length.
+ * @param v - The vector
+ * @return Normalized vector, or zero vector if magnitude is 0
+ */
+def normalize(v: Vec2): Vec2 = {
+  val mag = magnitude(v)
+  if (mag > 0.0) Vec2(v.x / mag, v.y / mag)
+  else Vec2(0.0, 0.0)
+}
+
+/**
+ * Calculates Euclidean distance between two points.
+ * @param p1 - First point
+ * @param p2 - Second point
+ * @return Distance between points
+ */
+def distance(p1: Vec2, p2: Vec2): Double =
+  magnitude(sub(p2, p1))
+
+/**
+ * Square root approximation using Newton's method.
+ * @param x - The value to compute the square root of
+ * @return The square root approximation
+ */
+def sqrt(x: Double): Double = {
+  if (x <= 0.0) 0.0
+  else {
+    def iterate(guess: Double, n: Int): Double = {
+      if (n <= 0) guess
+      else {
+        val better = (guess + x / guess) / 2.0
+        iterate(better, n - 1)
+      }
+    }
+    iterate(x / 2.0, 10)
+  }
+}
+
+/**
+ * Returns the larger of two doubles.
+ * @param a - First value
+ * @param b - Second value
+ * @return Maximum of a and b
+ */
+def maxDouble(a: Double, b: Double): Double =
+  if (a > b) a else b
+
+/**
+ * Returns the smaller of two doubles.
+ * @param a - First value
+ * @param b - Second value
+ * @return Minimum of a and b
+ */
+def minDouble(a: Double, b: Double): Double =
+  if (a < b) a else b
+
+/**
+ * Clamps a value between a minimum and maximum.
+ * @param value - Value to clamp
+ * @param minVal - Minimum allowed value
+ * @param maxVal - Maximum allowed value
+ * @return Clamped value
+ */
+def clamp(value: Double, minVal: Double, maxVal: Double): Double =
+  maxDouble(minVal, minDouble(value, maxVal))
+
+/**
+ * Calculates the absolute value of a double.
+ * @param x - Input value
+ * @return Absolute value
+ */
+def absDouble(x: Double): Double =
+  if (x < 0.0) 0.0 - x else x
+
+/**
+ * Calculates the floor of a double.
+ * @param x - Input value
+ * @return Integar part as double
+ */
+def floorDouble(x: Double): Double = {
+  val i = x.toInt
+  if (x < 0.0 && x != i.toDouble) (i - 1).toDouble
+  else i.toDouble
+}
+
+/**
+ * Calculates the floating point modulo.
+ * @param x - Dividend
+ * @param y - Divisor
+ * @return Remainder of x / y
+ */
+def modDouble(x: Double, y: Double): Double =
+  x - (floorDouble(x / y) * y)

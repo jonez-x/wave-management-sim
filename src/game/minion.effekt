@@ -1,6 +1,8 @@
 module src/game/minion
 
 import src/types
+import src/utils/math
+import src/utils/lists
 import src/effects
 
 /**
@@ -268,8 +270,6 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
     
     val shouldTargetTank = isTanking && 
                            distance(minion.position, tankPos) <= tankAggroRange
-    
-    // Check if enemy turret is in attack range - TURRET HAS PRIORITY
     val enemyTurretForTarget = minion.team match {
       case Blue() => redTurret
       case Red() => blueTurret
@@ -281,12 +281,10 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
       if (minion.targetId == tankTargetId) tankTargetId
       else tankTargetId
     } else if (turretInRange) {
-      // TURRET PRIORITY: If turret is in range, always attack turret
-      -1  // -1 means attack turret
+      -1
     } else {
       if (minion.targetId == tankTargetId) -1
       else if (minion.targetId >= 0 && isTargetValid(minion, minion.targetId, allMinions)) {
-        // We have a valid minion target and turret is NOT in range
         findMinionById(allMinions, minion.targetId) match {
           case Some(target) =>
             if (isInAttackRange(minion, target.position)) {
@@ -417,3 +415,128 @@ def updateAllMinions(minions: List[Minion], blueTurret: Turret, redTurret: Turre
     updateMinion(m, minions, blueTurret, redTurret, deltaTime, currentTime, isTanking, tankPos)
   }
 }
+
+/**
+ * Returns the name of the minion type.
+ * @param minionType - The type of minion
+ * @return String representation like "Melee", "Caster", or "Cannon"
+ */
+def minionTypeName(minionType: MinionType): String =
+  minionType match {
+    case Melee() => "Melee"
+    case Caster() => "Caster"
+    case Cannon() => "Cannon"
+  }
+
+/**
+ * Returns the base stats for a given minion type.
+ * @param minionType - The type of minion
+ * @return MinionStats record with base values
+ */
+def getMinionStats(minionType: MinionType): MinionStats =
+  minionType match {
+    case Melee() => MinionStats(
+      maxHp = 477.0,
+      attackDamage = 12.0 * DAMAGE_SCALE,
+      attackSpeed = 1.25,
+      attackRange = 110.0 * STAT_SCALE,
+      movementSpeed = 325.0 * STAT_SCALE,
+      goldValue = 21
+    )
+    case Caster() => MinionStats(
+      maxHp = 296.0,
+      attackDamage = 24.0 * DAMAGE_SCALE,
+      attackSpeed = 0.667,
+      attackRange = 550.0 * STAT_SCALE,
+      movementSpeed = 325.0 * STAT_SCALE,
+      goldValue = 14
+    )
+    case Cannon() => MinionStats(
+      maxHp = 912.0,
+      attackDamage = 41.0 * DAMAGE_SCALE,
+      attackSpeed = 1.0,
+      attackRange = 300.0 * STAT_SCALE,
+      movementSpeed = 325.0 * STAT_SCALE,
+      goldValue = 60
+    )
+  }
+
+/**
+ * Get minion radius for rendering.
+ * @param minionType - The type of minion
+ * @return The radius in pixels
+ */
+def getMinionRadius(minionType: MinionType): Double =
+  minionType match {
+    case Melee() => 12.0
+    case Caster() => 8.0
+    case Cannon() => 18.0
+  }
+
+/**
+ * Apply scaling based on game time (90s cycles).
+ * @param stats - Base minion stats
+ * @param minionType - The type of minion
+ * @param gameTime - Current game time in seconds
+ * @return Scaled stats
+ */
+def applyScaling(stats: MinionStats, minionType: MinionType, gameTime: Double): MinionStats = {
+  val cycleDuration = 90.0
+  val cycles = floorDouble(maxDouble(0.0, gameTime) / cycleDuration)
+  
+  if (cycles <= 0.0) {
+    stats
+  } else {
+    val (hpGrowth, adGrowth) = minionType match {
+      case Melee() => (20.0, 0.5)
+      case Caster() => (15.0, 2.0)
+      case Cannon() => (50.0, 3.0)
+    }
+    
+    val bonusHp = hpGrowth * cycles
+    val bonusAd = adGrowth * cycles
+    
+    MinionStats(
+      maxHp = stats.maxHp + bonusHp,
+      attackDamage = stats.attackDamage + bonusAd,
+      attackSpeed = stats.attackSpeed,
+      attackRange = stats.attackRange,
+      movementSpeed = stats.movementSpeed,
+      goldValue = stats.goldValue
+    )
+  }
+}
+
+/**
+ * Creates a new minion entity with scaled stats.
+ * @param id - Unique identifier
+ * @param team - Team the minion belongs to
+ * @param minionType - Type of minion
+ * @param spawnPos - Initial position
+ * @param gameTime - Current game time for scaling
+ * @return A new Minion record
+ */
+def createMinion(id: Int, team: Team, minionType: MinionType, spawnPos: Vec2, gameTime: Double): Minion = {
+  val baseStats = getMinionStats(minionType)
+  val scaledStats = applyScaling(baseStats, minionType, gameTime)
+  
+  Minion(
+    id = id,
+    team = team,
+    minionType = minionType,
+    position = spawnPos,
+    currentHp = scaledStats.maxHp,
+    stats = scaledStats,
+    targetId = -1,
+    lastAttackTime = 0.0,
+    isAlive = true
+  )
+}
+
+/**
+ * Checks if the minion has a valid target ID.
+ * @param minion - The minion to check
+ * @return True if targetId >= 0
+ */
+def hasTarget(minion: Minion): Bool =
+  minion.targetId >= 0
