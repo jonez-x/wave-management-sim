@@ -10,8 +10,14 @@ import src/game/minion
 import src/game/turret
 import src/game/wave
 import src/game/state
+import src/game/combat
 import src/tools/dispatcher
 import src/tools/utils
+import src/tools/lasthit
+import src/tools/aoe
+import src/tools/clear
+import src/tools/tank
+import src/helpers
 
 def main() = mainSuite("Wave Management Simulator Tests") {
   
@@ -261,6 +267,830 @@ def main() = mainSuite("Wave Management Simulator Tests") {
       val nums = Cons(1, Cons(2, Cons(3, Cons(4, Nil()))))
       val greaterThan2 = listFilter(nums) { n => n > 2 }
       assertEqual(listLength(greaterThan2), 2)
+    }
+  }
+
+  suite("Math Utilities") {
+    test("magnitude of 3-4-5 triangle") {
+      assertEqual(magnitude(Vec2(3.0, 4.0)), 5.0)
+    }
+
+    test("magnitude of zero vector") {
+      assertEqual(magnitude(Vec2(0.0, 0.0)), 0.0)
+    }
+
+    test("normalize produces unit vector") {
+      val n = normalize(Vec2(3.0, 4.0))
+      assertEqual(n.x, 0.6)
+      assertEqual(n.y, 0.8)
+    }
+
+    test("normalize zero vector returns zero") {
+      val n = normalize(Vec2(0.0, 0.0))
+      assertEqual(n.x, 0.0)
+      assertEqual(n.y, 0.0)
+    }
+
+    test("distance between two points") {
+      assertEqual(distance(Vec2(0.0, 0.0), Vec2(3.0, 4.0)), 5.0)
+    }
+
+    test("distance to self is zero") {
+      assertEqual(distance(Vec2(5.0, 5.0), Vec2(5.0, 5.0)), 0.0)
+    }
+
+    test("clamp within range unchanged") {
+      assertEqual(clamp(5.0, 0.0, 10.0), 5.0)
+    }
+
+    test("clamp below minimum") {
+      assertEqual(clamp(-3.0, 0.0, 10.0), 0.0)
+    }
+
+    test("clamp above maximum") {
+      assertEqual(clamp(15.0, 0.0, 10.0), 10.0)
+    }
+
+    test("absDouble positive and negative") {
+      assertEqual(absDouble(5.0), 5.0)
+      assertEqual(absDouble(-5.0), 5.0)
+      assertEqual(absDouble(0.0), 0.0)
+    }
+
+    test("maxDouble and minDouble") {
+      assertEqual(maxDouble(3.0, 7.0), 7.0)
+      assertEqual(maxDouble(7.0, 3.0), 7.0)
+      assertEqual(minDouble(3.0, 7.0), 3.0)
+      assertEqual(minDouble(7.0, 3.0), 3.0)
+    }
+
+    test("floorDouble") {
+      assertEqual(floorDouble(3.7), 3.0)
+      assertEqual(floorDouble(4.0), 4.0)
+      assertEqual(floorDouble(-2.3), -3.0)
+    }
+
+    test("modDouble") {
+      assertEqual(modDouble(7.0, 3.0), 1.0)
+      assertEqual(modDouble(6.0, 3.0), 0.0)
+    }
+  }
+
+  suite("Extended List Helpers") {
+    test("listMap transforms elements") {
+      val nums = Cons(1, Cons(2, Cons(3, Nil())))
+      val doubled = listMap(nums) { n => n * 2 }
+      doubled match {
+        case Cons(a, Cons(b, Cons(c, Nil()))) =>
+          assertEqual(a, 2)
+          assertEqual(b, 4)
+          assertEqual(c, 6)
+        case _ => assertEqual(1, 0)
+      }
+    }
+
+    test("listFind returns matching element") {
+      val nums = Cons(1, Cons(2, Cons(3, Nil())))
+      val found = listFind(nums) { n => n > 2 }
+      found match {
+        case Some(v) => assertEqual(v, 3)
+        case None() => assertEqual(1, 0)
+      }
+    }
+
+    test("listFind returns None when not found") {
+      val nums = Cons(1, Cons(2, Nil()))
+      val found = listFind(nums) { n => n > 10 }
+      found match {
+        case Some(_) => assertEqual(1, 0)
+        case None() => assertEqual(true, true)
+      }
+    }
+
+    test("listAppend concatenates lists") {
+      val a = Cons(1, Cons(2, Nil()))
+      val b = Cons(3, Cons(4, Nil()))
+      val result = listAppend(a, b)
+      assertEqual(listLength(result), 4)
+      result match {
+        case Cons(x, _) => assertEqual(x, 1)
+        case _ => assertEqual(1, 0)
+      }
+    }
+
+    test("listAppend with empty list") {
+      val a: List[Int] = Nil()
+      val b = Cons(1, Cons(2, Nil()))
+      assertEqual(listLength(listAppend(a, b)), 2)
+      assertEqual(listLength(listAppend(b, a)), 2)
+    }
+  }
+
+  suite("Helpers") {
+    test("countTeamMinions counts alive minions of team") {
+      val m1 = createMinion(100, Blue(), Melee(), Vec2(400.0, 200.0), 0.0)
+      val m2 = createMinion(101, Blue(), Caster(), Vec2(400.0, 200.0), 0.0)
+      val m3 = createMinion(102, Red(), Melee(), Vec2(400.0, 200.0), 0.0)
+      val m4 = killMinion(createMinion(103, Blue(), Melee(), Vec2(400.0, 200.0), 0.0))
+      val minions = Cons(m1, Cons(m2, Cons(m3, Cons(m4, Nil()))))
+      assertEqual(countTeamMinions(minions, Blue()), 2)
+      assertEqual(countTeamMinions(minions, Red()), 1)
+    }
+
+    test("countTeamMinions empty list") {
+      val empty: List[Minion] = Nil()
+      assertEqual(countTeamMinions(empty, Blue()), 0)
+    }
+
+    test("listContainsString") {
+      val keys = Cons("q", Cons("w", Cons("e", Nil())))
+      assertEqual(listContainsString(keys, "w"), true)
+      assertEqual(listContainsString(keys, "z"), false)
+      assertEqual(listContainsString(Nil(), "a"), false)
+    }
+
+    test("modulo") {
+      assertEqual(modulo(7, 3), 1)
+      assertEqual(modulo(6, 3), 0)
+      assertEqual(modulo(1, 3), 1)
+    }
+  }
+
+  suite("Game Utilities") {
+    test("sameTeam and isEnemy") {
+      assertEqual(sameTeam(Blue(), Blue()), true)
+      assertEqual(sameTeam(Blue(), Red()), false)
+      assertEqual(sameTeam(Red(), Red()), true)
+      assertEqual(isEnemy(Blue(), Red()), true)
+      assertEqual(isEnemy(Blue(), Blue()), false)
+    }
+
+    test("speedName") {
+      assertEqual(speedName(Speed1x()), "1x")
+      assertEqual(speedName(Speed2x()), "2x")
+      assertEqual(speedName(Speed4x()), "4x")
+    }
+
+    test("waveStateName") {
+      assertEqual(waveStateName(Neutral()), "Neutral")
+      assertEqual(waveStateName(PushingBlue()), "Pushing Blue")
+      assertEqual(waveStateName(PushingRed()), "Pushing Red")
+      assertEqual(waveStateName(SlowPushBlue()), "Slow Push Blue")
+      assertEqual(waveStateName(SlowPushRed()), "Slow Push Red")
+      assertEqual(waveStateName(FrozenBlue()), "Frozen (Blue Side)")
+      assertEqual(waveStateName(FrozenRed()), "Frozen (Red Side)")
+      assertEqual(waveStateName(Crashing()), "Crashing")
+      assertEqual(waveStateName(Bouncing()), "Bouncing")
+    }
+  }
+
+  suite("Minion Logic") {
+    test("findNearestEnemy returns closest enemy") {
+      val blue = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val redClose = createMinion(2, Red(), Melee(), Vec2(150.0, 200.0), 0.0)
+      val redFar = createMinion(3, Red(), Melee(), Vec2(500.0, 200.0), 0.0)
+      val all = Cons(blue, Cons(redClose, Cons(redFar, Nil())))
+      assertEqual(findNearestEnemy(blue, all), 2)
+    }
+
+    test("findNearestEnemy returns -1 with no enemies") {
+      val blue1 = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val blue2 = createMinion(2, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val all = Cons(blue1, Cons(blue2, Nil()))
+      assertEqual(findNearestEnemy(blue1, all), -1)
+    }
+
+    test("findNearestEnemy ignores dead enemies") {
+      val blue = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val deadRed = killMinion(createMinion(2, Red(), Melee(), Vec2(110.0, 200.0), 0.0))
+      val all = Cons(blue, Cons(deadRed, Nil()))
+      assertEqual(findNearestEnemy(blue, all), -1)
+    }
+
+    test("canAttack when cooldown expired") {
+      val minion = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      // Melee attackSpeed = 1.25, cooldown = 0.8s. lastAttackTime = 0.0
+      assertEqual(canAttack(minion, 1.0), true)
+    }
+
+    test("canAttack when still on cooldown") {
+      val minion = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      // cooldown = 0.8s, only 0.5s elapsed
+      assertEqual(canAttack(minion, 0.5), false)
+    }
+
+    test("isInAttackRange within range") {
+      val minion = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      // Melee range = 110 * 0.25 = 27.5
+      assertEqual(isInAttackRange(minion, Vec2(120.0, 200.0)), true)
+    }
+
+    test("isInAttackRange out of range") {
+      val minion = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      // Melee range = 27.5, distance = 50
+      assertEqual(isInAttackRange(minion, Vec2(150.0, 200.0)), false)
+    }
+
+    test("findMinionById found and not found") {
+      val m1 = createMinion(10, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val m2 = createMinion(20, Red(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val minions = Cons(m1, Cons(m2, Nil()))
+      findMinionById(minions, 20) match {
+        case Some(m) => assertEqual(m.id, 20)
+        case None() => assertEqual(1, 0)
+      }
+      findMinionById(minions, 99) match {
+        case Some(_) => assertEqual(1, 0)
+        case None() => assertEqual(true, true)
+      }
+    }
+
+    test("isTargetValid with alive enemy") {
+      val blue = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val red = createMinion(2, Red(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val all = Cons(blue, Cons(red, Nil()))
+      assertEqual(isTargetValid(blue, 2, all), true)
+    }
+
+    test("isTargetValid with dead target") {
+      val blue = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val deadRed = killMinion(createMinion(2, Red(), Melee(), Vec2(200.0, 200.0), 0.0))
+      val all = Cons(blue, Cons(deadRed, Nil()))
+      assertEqual(isTargetValid(blue, 2, all), false)
+    }
+
+    test("isTargetValid with same team target") {
+      val blue1 = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val blue2 = createMinion(2, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val all = Cons(blue1, Cons(blue2, Nil()))
+      assertEqual(isTargetValid(blue1, 2, all), false)
+    }
+
+    test("isTargetValid with nonexistent target") {
+      val blue = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val all = Cons(blue, Nil())
+      assertEqual(isTargetValid(blue, 99, all), false)
+    }
+
+    test("applyScaling no growth before 90s") {
+      val stats = getMinionStats(Melee())
+      val scaled = applyScaling(stats, Melee(), 80.0)
+      assertEqual(scaled.maxHp, 477.0)
+      assertEqual(scaled.attackDamage, stats.attackDamage)
+    }
+
+    test("applyScaling grows after 90s") {
+      val stats = getMinionStats(Melee())
+      val scaled = applyScaling(stats, Melee(), 180.0)
+      // 2 cycles, Melee: +20 HP/cycle, +0.5 AD/cycle
+      assertEqual(scaled.maxHp, 477.0 + 40.0)
+      assertEqual(scaled.attackDamage, stats.attackDamage + 1.0)
+    }
+
+    test("applyScaling caster growth") {
+      val stats = getMinionStats(Caster())
+      val scaled = applyScaling(stats, Caster(), 90.0)
+      // 1 cycle, Caster: +15 HP, +2.0 AD
+      assertEqual(scaled.maxHp, 296.0 + 15.0)
+      assertEqual(scaled.attackDamage, stats.attackDamage + 2.0)
+    }
+
+    test("minionTypeName") {
+      assertEqual(minionTypeName(Melee()), "Melee")
+      assertEqual(minionTypeName(Caster()), "Caster")
+      assertEqual(minionTypeName(Cannon()), "Cannon")
+    }
+
+    test("getMinionRadius") {
+      assertEqual(getMinionRadius(Melee()), 12.0)
+      assertEqual(getMinionRadius(Caster()), 8.0)
+      assertEqual(getMinionRadius(Cannon()), 18.0)
+    }
+
+    test("withPosition updates position only") {
+      val m = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val moved = withPosition(m, Vec2(300.0, 250.0))
+      assertEqual(moved.position.x, 300.0)
+      assertEqual(moved.position.y, 250.0)
+      assertEqual(moved.id, 1)
+      assertEqual(moved.currentHp, 477.0)
+    }
+
+    test("withTarget updates target only") {
+      val m = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val targeted = withTarget(m, 5)
+      assertEqual(targeted.targetId, 5)
+      assertEqual(targeted.id, 1)
+      assertEqual(targeted.currentHp, 477.0)
+    }
+
+    test("withAttack updates target and attack time") {
+      val m = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val attacked = withAttack(m, 5, 10.0)
+      assertEqual(attacked.targetId, 5)
+      assertEqual(attacked.lastAttackTime, 10.0)
+    }
+
+    test("killMinion sets dead and zero HP") {
+      val m = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val dead = killMinion(m)
+      assertEqual(dead.isAlive, false)
+      assertEqual(dead.currentHp, 0.0)
+    }
+
+    test("clampToLaneBoundaries keeps position within bounds") {
+      val inside = clampToLaneBoundaries(Vec2(500.0, 200.0))
+      assertEqual(inside.x, 500.0)
+      assertEqual(inside.y, 200.0)
+    }
+
+    test("clampToLaneBoundaries clamps outside position") {
+      val outside = clampToLaneBoundaries(Vec2(-100.0, 50.0))
+      assertEqual(outside.x, LANE_START_X + BOUNDARY_PADDING)
+      assertEqual(outside.y, LANE_MIN_Y + BOUNDARY_PADDING)
+    }
+  }
+
+  suite("Turret Helpers") {
+    test("withTurretHp updates health") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      val damaged = withTurretHp(t, 3000.0)
+      assertEqual(damaged.currentHp, 3000.0)
+      assertEqual(damaged.isAlive, true)
+      assertEqual(damaged.id, 0)
+    }
+
+    test("killTurret sets dead and zero HP") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      val dead = killTurret(t)
+      assertEqual(dead.isAlive, false)
+      assertEqual(dead.currentHp, 0.0)
+    }
+
+    test("withTurretTarget updates target and attack time") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      val updated = withTurretTarget(t, 5, 10.0)
+      assertEqual(updated.targetId, 5)
+      assertEqual(updated.lastAttackTime, 10.0)
+      assertEqual(updated.currentHp, 5000.0)
+    }
+  }
+
+  suite("Combat") {
+    test("damageMinion reduces HP") {
+      val m = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val damaged = damageMinion(m, 100.0)
+      assertEqual(damaged.currentHp, 377.0)
+      assertEqual(damaged.isAlive, true)
+    }
+
+    test("damageMinion kills at zero HP") {
+      val m = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val dead = damageMinion(m, 477.0)
+      assertEqual(dead.currentHp, 0.0)
+      assertEqual(dead.isAlive, false)
+    }
+
+    test("damageMinion kills when damage exceeds HP") {
+      val m = createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0)
+      val dead = damageMinion(m, 1000.0)
+      assertEqual(dead.currentHp, 0.0)
+      assertEqual(dead.isAlive, false)
+    }
+
+    test("damageTurret reduces HP") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      val damaged = damageTurret(t, 500.0)
+      assertEqual(damaged.currentHp, 4500.0)
+      assertEqual(damaged.isAlive, true)
+    }
+
+    test("damageTurret kills at zero HP") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      val dead = damageTurret(t, 5000.0)
+      assertEqual(dead.currentHp, 0.0)
+      assertEqual(dead.isAlive, false)
+    }
+
+    test("justAttacked true when attack just happened") {
+      val m = withAttack(createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0), 2, 10.0)
+      // currentTime = 10.0, lastAttackTime = 10.0, deltaTime = 0.016
+      // timeSinceAttack = 0.0, which is >= 0 and < 0.032
+      assertEqual(justAttacked(m, 10.0, 0.016), true)
+    }
+
+    test("justAttacked false when attack was long ago") {
+      val m = withAttack(createMinion(1, Blue(), Melee(), Vec2(100.0, 200.0), 0.0), 2, 5.0)
+      // currentTime = 10.0, lastAttackTime = 5.0, deltaTime = 0.016
+      // timeSinceAttack = 5.0, which is not < 0.032
+      assertEqual(justAttacked(m, 10.0, 0.016), false)
+    }
+
+    test("turretInRange within range") {
+      // TURRET_STATS.attackRange = 150.0
+      assertEqual(turretInRange(Vec2(150.0, 200.0), Vec2(200.0, 200.0)), true)
+    }
+
+    test("turretInRange out of range") {
+      assertEqual(turretInRange(Vec2(150.0, 200.0), Vec2(500.0, 200.0)), false)
+    }
+
+    test("turretCanAttack when cooldown expired") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      // TURRET_STATS.attackSpeed = 0.83, cooldown ~1.2s
+      assertEqual(turretCanAttack(t, 2.0), true)
+    }
+
+    test("turretCanAttack when on cooldown") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      assertEqual(turretCanAttack(t, 0.5), false)
+    }
+
+    test("findTurretTarget finds enemy in range") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      val enemy = createMinion(10, Red(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val ally = createMinion(11, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val minions = Cons(ally, Cons(enemy, Nil()))
+      findTurretTarget(t, minions) match {
+        case Some(m) => assertEqual(m.id, 10)
+        case None() => assertEqual(1, 0)
+      }
+    }
+
+    test("findTurretTarget returns None when no enemies in range") {
+      val t = createTurret(0, Blue(), Vec2(150.0, 200.0))
+      val farEnemy = createMinion(10, Red(), Melee(), Vec2(800.0, 200.0), 0.0)
+      findTurretTarget(t, Cons(farEnemy, Nil())) match {
+        case Some(_) => assertEqual(1, 0)
+        case None() => assertEqual(true, true)
+      }
+    }
+
+    test("updateProjectiles applies damage on hit") {
+      val target = createMinion(10, Red(), Melee(), Vec2(500.0, 200.0), 0.0)
+      // Projectile 1 unit away, moves 16 units per frame -> hits
+      val proj = Projectile(1, Vec2(499.0, 200.0), 10, 50.0, 1000.0, false, false, Vec2(500.0, 200.0))
+      val (remainingProj, updatedMinions) = updateProjectiles(Cons(proj, Nil()), Cons(target, Nil()), 0.016)
+      assertEqual(listLength(remainingProj), 0)
+      findMinionById(updatedMinions, 10) match {
+        case Some(m) => assertEqual(m.currentHp, 427.0)
+        case None() => assertEqual(1, 0)
+      }
+    }
+
+    test("updateProjectiles moves projectile when far from target") {
+      val target = createMinion(10, Red(), Melee(), Vec2(500.0, 200.0), 0.0)
+      // Projectile 400 units away, moves 1.6 per frame -> doesn't hit
+      val proj = Projectile(1, Vec2(100.0, 200.0), 10, 50.0, 100.0, false, false, Vec2(500.0, 200.0))
+      val (remainingProj, updatedMinions) = updateProjectiles(Cons(proj, Nil()), Cons(target, Nil()), 0.016)
+      assertEqual(listLength(remainingProj), 1)
+      findMinionById(updatedMinions, 10) match {
+        case Some(m) => assertEqual(m.currentHp, 477.0)
+        case None() => assertEqual(1, 0)
+      }
+    }
+  }
+
+  suite("Wave System") {
+    test("isCannonWave") {
+      assertEqual(isCannonWave(0), false)
+      assertEqual(isCannonWave(1), false)
+      assertEqual(isCannonWave(2), false)
+      assertEqual(isCannonWave(3), true)
+      assertEqual(isCannonWave(4), false)
+      assertEqual(isCannonWave(6), true)
+      assertEqual(isCannonWave(9), true)
+    }
+
+    test("getWaveSize non-cannon wave") {
+      assertEqual(getWaveSize(1), 6)
+      assertEqual(getWaveSize(2), 6)
+    }
+
+    test("getWaveSize cannon wave") {
+      assertEqual(getWaveSize(3), 7)
+      assertEqual(getWaveSize(6), 7)
+    }
+
+    test("scheduleTeamWave non-cannon has 6 spawns") {
+      val spawns = scheduleTeamWave(Blue(), 1, 0.0)
+      assertEqual(listLength(spawns), 6)
+    }
+
+    test("scheduleTeamWave cannon wave has 7 spawns") {
+      val spawns = scheduleTeamWave(Blue(), 3, 0.0)
+      assertEqual(listLength(spawns), 7)
+    }
+
+    test("scheduleBothWaves spawns for both teams") {
+      val spawns = scheduleBothWaves(1, 0.0)
+      // 6 per team = 12 total for non-cannon wave
+      assertEqual(listLength(spawns), 12)
+    }
+
+    test("scheduleBothWaves cannon wave") {
+      val spawns = scheduleBothWaves(3, 0.0)
+      // 7 per team = 14 total for cannon wave
+      assertEqual(listLength(spawns), 14)
+    }
+
+    test("getTeamAverageX with minions") {
+      val m1 = createMinion(1, Blue(), Melee(), Vec2(400.0, 200.0), 0.0)
+      val m2 = createMinion(2, Blue(), Melee(), Vec2(600.0, 200.0), 0.0)
+      val m3 = createMinion(3, Red(), Melee(), Vec2(900.0, 200.0), 0.0)
+      val minions = Cons(m1, Cons(m2, Cons(m3, Nil())))
+      assertEqual(getTeamAverageX(minions, Blue()), 500.0)
+      assertEqual(getTeamAverageX(minions, Red()), 900.0)
+    }
+
+    test("getTeamAverageX returns -1 with no minions") {
+      val empty: List[Minion] = Nil()
+      assertEqual(getTeamAverageX(empty, Blue()), -1.0)
+    }
+
+    test("getTeamAverageX ignores dead minions") {
+      val alive = createMinion(1, Blue(), Melee(), Vec2(400.0, 200.0), 0.0)
+      val dead = killMinion(createMinion(2, Blue(), Melee(), Vec2(800.0, 200.0), 0.0))
+      val minions = Cons(alive, Cons(dead, Nil()))
+      assertEqual(getTeamAverageX(minions, Blue()), 400.0)
+    }
+
+    test("calculateWaveState neutral with no minions") {
+      val empty: List[Minion] = Nil()
+      assertEqual(waveStateName(calculateWaveState(empty, BLUE_TURRET_X, RED_TURRET_X)), "Neutral")
+    }
+
+    test("calculateWaveState neutral with equal forces in center") {
+      val b1 = createMinion(1, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val r1 = createMinion(2, Red(), Melee(), Vec2(900.0, 200.0), 0.0)
+      val minions = Cons(b1, Cons(r1, Nil()))
+      assertEqual(waveStateName(calculateWaveState(minions, BLUE_TURRET_X, RED_TURRET_X)), "Neutral")
+    }
+
+    test("calculateWaveState pushing red with blue advantage") {
+      // countDiff > 3 needed, wave in center
+      val b1 = createMinion(1, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val b2 = createMinion(2, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val b3 = createMinion(3, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val b4 = createMinion(4, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val b5 = createMinion(5, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val r1 = createMinion(6, Red(), Melee(), Vec2(900.0, 200.0), 0.0)
+      val minions = Cons(b1, Cons(b2, Cons(b3, Cons(b4, Cons(b5, Cons(r1, Nil()))))))
+      assertEqual(waveStateName(calculateWaveState(minions, BLUE_TURRET_X, RED_TURRET_X)), "Pushing Red")
+    }
+
+    test("calculateWaveState slow push red") {
+      // countDiff > 1 but <= 3, wave in center
+      val b1 = createMinion(1, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val b2 = createMinion(2, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val b3 = createMinion(3, Blue(), Melee(), Vec2(800.0, 200.0), 0.0)
+      val r1 = createMinion(4, Red(), Melee(), Vec2(900.0, 200.0), 0.0)
+      val minions = Cons(b1, Cons(b2, Cons(b3, Cons(r1, Nil()))))
+      assertEqual(waveStateName(calculateWaveState(minions, BLUE_TURRET_X, RED_TURRET_X)), "Slow Push Red")
+    }
+
+    test("calculateWaveState crashing at blue turret") {
+      // Only red minions near blue turret (wavePos < blueZone)
+      val r1 = createMinion(1, Red(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val r2 = createMinion(2, Red(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val minions = Cons(r1, Cons(r2, Nil()))
+      assertEqual(waveStateName(calculateWaveState(minions, BLUE_TURRET_X, RED_TURRET_X)), "Crashing")
+    }
+
+    test("calculateWaveState crashing at red turret") {
+      // Only blue minions near red turret (wavePos > redZone)
+      val b1 = createMinion(1, Blue(), Melee(), Vec2(1500.0, 200.0), 0.0)
+      val b2 = createMinion(2, Blue(), Melee(), Vec2(1500.0, 200.0), 0.0)
+      val minions = Cons(b1, Cons(b2, Nil()))
+      assertEqual(waveStateName(calculateWaveState(minions, BLUE_TURRET_X, RED_TURRET_X)), "Crashing")
+    }
+
+    test("calculateWaveState frozen blue") {
+      // Both teams near blue turret, similar counts
+      val b1 = createMinion(1, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val r1 = createMinion(2, Red(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val minions = Cons(b1, Cons(r1, Nil()))
+      assertEqual(waveStateName(calculateWaveState(minions, BLUE_TURRET_X, RED_TURRET_X)), "Frozen (Blue Side)")
+    }
+
+    test("calculateWaveState bouncing at blue side") {
+      // Near blue turret, blue has 3+ more than red (countDiff > 2)
+      val b1 = createMinion(1, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val b2 = createMinion(2, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val b3 = createMinion(3, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val b4 = createMinion(4, Blue(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val r1 = createMinion(5, Red(), Melee(), Vec2(200.0, 200.0), 0.0)
+      val minions = Cons(b1, Cons(b2, Cons(b3, Cons(b4, Cons(r1, Nil())))))
+      assertEqual(waveStateName(calculateWaveState(minions, BLUE_TURRET_X, RED_TURRET_X)), "Bouncing")
+    }
+
+    test("checkAndScheduleWaves triggers at spawn time") {
+      val (pending, waveNum, nextSpawn) = checkAndScheduleWaves(30.0, 30.0, 0, Nil())
+      assertEqual(waveNum, 1)
+      assertEqual(nextSpawn, 60.0)
+      assertEqual(listLength(pending), 12)
+    }
+
+    test("checkAndScheduleWaves does not trigger before time") {
+      val (pending, waveNum, nextSpawn) = checkAndScheduleWaves(10.0, 30.0, 0, Nil())
+      assertEqual(waveNum, 0)
+      assertEqual(nextSpawn, 30.0)
+      assertEqual(listLength(pending), 0)
+    }
+
+    test("processPendingSpawns spawns ready minions") {
+      val spawn1 = PendingSpawn(Blue(), Melee(), 0.0, 0.0)
+      val spawn2 = PendingSpawn(Red(), Caster(), 10.0, 0.0)
+      val pending = Cons(spawn1, Cons(spawn2, Nil()))
+      val (newMinions, remaining, nextId) = processPendingSpawns(pending, Nil(), 100, 1.0)
+      assertEqual(listLength(newMinions), 1)
+      assertEqual(listLength(remaining), 1)
+      assertEqual(nextId, 101)
+    }
+
+    test("processPendingSpawns spawns nothing when too early") {
+      val spawn = PendingSpawn(Blue(), Melee(), 10.0, 0.0)
+      val (newMinions, remaining, nextId) = processPendingSpawns(Cons(spawn, Nil()), Nil(), 100, 0.0)
+      assertEqual(listLength(newMinions), 0)
+      assertEqual(listLength(remaining), 1)
+      assertEqual(nextId, 100)
+    }
+  }
+
+  suite("Tools") {
+    test("toolName all tools") {
+      assertEqual(toolName(LastHitTool()), "Last Hit")
+      assertEqual(toolName(AoETool()), "AoE Damage")
+      assertEqual(toolName(KillCastersTool()), "Kill Casters")
+      assertEqual(toolName(FullClearTool()), "Full Clear")
+      assertEqual(toolName(TankTool()), "Tank")
+      assertEqual(toolName(NoTool()), "None")
+    }
+
+    test("applyLastHit kills low HP minion in range") {
+      val initial = createInitialState()
+      withState(initial) {
+        val minion = withHp(createMinion(10, Blue(), Melee(), Vec2(400.0, 200.0), 0.0), 30.0)
+        addMinion(minion)
+        applyLastHit(Vec2(400.0, 200.0))
+        assertEqual(countTeamMinions(getMinions(), Blue()), 0)
+      }
+    }
+
+    test("applyLastHit ignores minion above threshold") {
+      val initial = createInitialState()
+      withState(initial) {
+        val minion = createMinion(10, Blue(), Melee(), Vec2(400.0, 200.0), 0.0)
+        addMinion(minion)
+        applyLastHit(Vec2(400.0, 200.0))
+        assertEqual(countTeamMinions(getMinions(), Blue()), 1)
+      }
+    }
+
+    test("applyLastHit ignores minion out of click radius") {
+      val initial = createInitialState()
+      withState(initial) {
+        val minion = withHp(createMinion(10, Blue(), Melee(), Vec2(400.0, 200.0), 0.0), 30.0)
+        addMinion(minion)
+        // Click far away (distance > LASTHIT_CLICK_RADIUS = 30)
+        applyLastHit(Vec2(500.0, 200.0))
+        assertEqual(countTeamMinions(getMinions(), Blue()), 1)
+      }
+    }
+
+    test("applyAoE deals damage non-lethal") {
+      val initial = createInitialState()
+      withState(initial) {
+        val minion = createMinion(10, Blue(), Melee(), Vec2(400.0, 200.0), 0.0)
+        addMinion(minion)
+        applyAoE(Vec2(400.0, 200.0), AOE_RADIUS, AOE_DAMAGE, false)
+        val minions = getMinions()
+        findMinionById(minions, 10) match {
+          case Some(m) =>
+            // 477 - 150 = 327 HP remaining
+            assertEqual(m.currentHp, 327.0)
+            assertEqual(m.isAlive, true)
+          case None() => assertEqual(1, 0)
+        }
+      }
+    }
+
+    test("applyAoE non-lethal leaves at 1 HP") {
+      val initial = createInitialState()
+      withState(initial) {
+        val minion = withHp(createMinion(10, Blue(), Caster(), Vec2(400.0, 200.0), 0.0), 50.0)
+        addMinion(minion)
+        // damage 150 > 50 HP, non-lethal -> leaves at 1
+        applyAoE(Vec2(400.0, 200.0), AOE_RADIUS, AOE_DAMAGE, false)
+        val minions = getMinions()
+        findMinionById(minions, 10) match {
+          case Some(m) =>
+            assertEqual(m.currentHp, 1.0)
+            assertEqual(m.isAlive, true)
+          case None() => assertEqual(1, 0)
+        }
+      }
+    }
+
+    test("applyAoE ignores minions outside radius") {
+      val initial = createInitialState()
+      withState(initial) {
+        val minion = createMinion(10, Blue(), Melee(), Vec2(400.0, 200.0), 0.0)
+        addMinion(minion)
+        // Click far away (distance > AOE_RADIUS = 80)
+        applyAoE(Vec2(600.0, 200.0), AOE_RADIUS, AOE_DAMAGE, false)
+        findMinionById(getMinions(), 10) match {
+          case Some(m) => assertEqual(m.currentHp, 477.0)
+          case None() => assertEqual(1, 0)
+        }
+      }
+    }
+
+    test("killCasters kills only target team casters in range") {
+      val initial = createInitialState()
+      withState(initial) {
+        addMinion(createMinion(10, Blue(), Caster(), Vec2(400.0, 200.0), 0.0))
+        addMinion(createMinion(11, Blue(), Melee(), Vec2(400.0, 200.0), 0.0))
+        addMinion(createMinion(12, Red(), Caster(), Vec2(400.0, 200.0), 0.0))
+        killCasters(Vec2(400.0, 200.0), Blue())
+        assertEqual(countTeamMinions(getMinions(), Blue()), 1)
+        assertEqual(countTeamMinions(getMinions(), Red()), 1)
+      }
+    }
+
+    test("fullClear kills all target team minions in range") {
+      val initial = createInitialState()
+      withState(initial) {
+        addMinion(createMinion(10, Red(), Melee(), Vec2(400.0, 200.0), 0.0))
+        addMinion(createMinion(11, Red(), Caster(), Vec2(400.0, 200.0), 0.0))
+        addMinion(createMinion(12, Blue(), Melee(), Vec2(400.0, 200.0), 0.0))
+        fullClear(Vec2(400.0, 200.0), FULL_CLEAR_RANGE, Red())
+        assertEqual(countTeamMinions(getMinions(), Red()), 0)
+        assertEqual(countTeamMinions(getMinions(), Blue()), 1)
+      }
+    }
+
+    test("fullClear ignores minions outside range") {
+      val initial = createInitialState()
+      withState(initial) {
+        addMinion(createMinion(10, Red(), Melee(), Vec2(400.0, 200.0), 0.0))
+        addMinion(createMinion(11, Red(), Melee(), Vec2(800.0, 200.0), 0.0))
+        fullClear(Vec2(400.0, 200.0), FULL_CLEAR_RANGE, Red())
+        // Only minion at 400 should be killed, one at 800 survives (distance > 200)
+        assertEqual(countTeamMinions(getMinions(), Red()), 1)
+      }
+    }
+
+    test("activateTank sets position and status") {
+      val initial = createInitialState()
+      withState(initial) {
+        activateTank(Vec2(500.0, 200.0))
+        val state = do getState()
+        assertEqual(state.isPlayerTanking, true)
+        assertEqual(state.tankPosition.x, 500.0)
+        assertEqual(state.tankPosition.y, 200.0)
+      }
+    }
+
+    test("deactivateTank clears tank status") {
+      val initial = createInitialState()
+      withState(initial) {
+        activateTank(Vec2(500.0, 200.0))
+        deactivateTank()
+        val state = do getState()
+        assertEqual(state.isPlayerTanking, false)
+      }
+    }
+
+    test("handleToolClick NoTool does nothing") {
+      val initial = createInitialState()
+      withState(initial) {
+        addMinion(createMinion(10, Blue(), Melee(), Vec2(400.0, 200.0), 0.0))
+        handleToolClick(NoTool(), Vec2(400.0, 200.0))
+        assertEqual(countTeamMinions(getMinions(), Blue()), 1)
+      }
+    }
+
+    test("handleToolClick TankTool activates tank") {
+      val initial = createInitialState()
+      withState(initial) {
+        handleToolClick(TankTool(), Vec2(500.0, 200.0))
+        val state = do getState()
+        assertEqual(state.isPlayerTanking, true)
+        assertEqual(state.tankPosition.x, 500.0)
+      }
+    }
+
+    test("handleToolClick KillCastersTool targets by side") {
+      val initial = createInitialState()
+      withState(initial) {
+        addMinion(createMinion(10, Blue(), Caster(), Vec2(400.0, 200.0), 0.0))
+        addMinion(createMinion(11, Red(), Caster(), Vec2(400.0, 200.0), 0.0))
+        // Click on left side (x=400 < LANE_CENTER_X=600) -> targets Blue
+        handleToolClick(KillCastersTool(), Vec2(400.0, 200.0))
+        assertEqual(countTeamMinions(getMinions(), Blue()), 0)
+        assertEqual(countTeamMinions(getMinions(), Red()), 1)
+      }
     }
   }
   ()
