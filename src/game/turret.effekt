@@ -20,3 +20,30 @@ def createTurret(id: Int, team: Team, pos: Vec2): Turret =
     lastAttackTime = 0.0,
     isAlive = true
   )
+
+/**
+ * Returns a copy of the turret with updated health.
+ * @param t - The turret to copy
+ * @param hp - The new health value
+ * @return Updated turret
+ */
+def withTurretHp(t: Turret, hp: Double): Turret =
+  Turret(t.id, t.team, t.position, hp, t.targetId, t.lastAttackTime, t.isAlive)
+
+/**
+ * Returns a dead copy of the turret with 0 HP.
+ * @param t - The turret to kill
+ * @return Dead turret
+ */
+def killTurret(t: Turret): Turret =
+  Turret(t.id, t.team, t.position, 0.0, t.targetId, t.lastAttackTime, false)
+
+/**
+ * Returns a copy of the turret with a new target and attack timestamp.
+ * @param t - The turret to copy
+ * @param targetId - The new target ID
+ * @param attackTime - The new last attack timestamp
+ * @return Updated turret
+ */
+def withTurretTarget(t: Turret, targetId: Int, attackTime: Double): Turret =
+  Turret(t.id, t.team, t.position, t.currentHp, targetId, attackTime, t.isAlive)

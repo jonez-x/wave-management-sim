@@ -6,6 +6,7 @@ import src/utils/lists
 import src/utils/game
 import src/effects
 import src/game/minion
+import src/game/turret
 
 /**
  * Apply damage to a minion.
@@ -15,31 +16,8 @@ import src/game/minion
  */
 def damageMinion(minion: Minion, damage: Double): Minion = {
   val newHp = minion.currentHp - damage
-  if (newHp <= 0.0) {
-    Minion(
-      minion.id,
-      minion.team,
-      minion.minionType,
-      minion.position,
-      0.0,
-      minion.stats,
-      minion.targetId,
-      minion.lastAttackTime,
-      false
-    )
-  } else {
-    Minion(
-      minion.id,
-      minion.team,
-      minion.minionType,
-      minion.position,
-      newHp,
-      minion.stats,
-      minion.targetId,
-      minion.lastAttackTime,
-      minion.isAlive
-    )
-  }
+  if (newHp <= 0.0) killMinion(minion)
+  else withHp(minion, newHp)
 }
 
 /**
@@ -50,27 +28,8 @@ def damageMinion(minion: Minion, damage: Double): Minion = {
  */
 def damageTurret(turret: Turret, damage: Double): Turret = {
   val newHp = turret.currentHp - damage
-  if (newHp <= 0.0) {
-    Turret(
-      turret.id,
-      turret.team,
-      turret.position,
-      0.0,
-      turret.targetId,
-      turret.lastAttackTime,
-      false
-    )
-  } else {
-    Turret(
-      turret.id,
-      turret.team,
-      turret.position,
-      newHp,
-      turret.targetId,
-      turret.lastAttackTime,
-      turret.isAlive
-    )
-  }
+  if (newHp <= 0.0) killTurret(turret)
+  else withTurretHp(turret, newHp)
 }
 
 /**
@@ -324,19 +283,10 @@ def processTurretCombat(minions: List[Minion], blueTurret: Turret, redTurret: Tu
           TURRET_PROJECTILE_SPEED, false, true, target.position
         )
         newProjectiles = Cons(proj, newProjectiles)
-        
-        updatedBlue = Turret(
-          blueTurret.id,
-          blueTurret.team,
-          blueTurret.position,
-          blueTurret.currentHp,
-          target.id,
-          currentTime,
-          blueTurret.isAlive
-        )
+        updatedBlue = withTurretTarget(blueTurret, target.id, currentTime)
     }
   }
-  
+
   if (redTurret.isAlive && turretCanAttack(redTurret, currentTime)) {
     val targetOpt = findTurretTarget(redTurret, minions)
     targetOpt match {
@@ -349,16 +299,7 @@ def processTurretCombat(minions: List[Minion], blueTurret: Turret, redTurret: Tu
           TURRET_PROJECTILE_SPEED, false, true, target.position
         )
         newProjectiles = Cons(proj, newProjectiles)
-        
-        updatedRed = Turret(
-          redTurret.id,
-          redTurret.team,
-          redTurret.position,
-          redTurret.currentHp,
-          target.id,
-          currentTime,
-          redTurret.isAlive
-        )
+        updatedRed = withTurretTarget(redTurret, target.id, currentTime)
     }
   }
   

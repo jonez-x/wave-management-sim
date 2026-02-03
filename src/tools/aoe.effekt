@@ -4,7 +4,7 @@ import src/types
 import src/utils/math
 import src/utils/lists
 import src/effects
-import src/game/combat
+import src/game/minion
 
 /**
  * Applies the AoE Damage tool effect.
@@ -24,20 +24,11 @@ def applyAoE(centerPos: Vec2, radius: Double, damage: Double, lethal: Bool): Uni
       val potentialHp = m.currentHp - damage
       
       if (potentialHp > 0.0) {
-        Minion(
-          m.id, m.team, m.minionType, m.position,
-          potentialHp, m.stats, m.targetId, m.lastAttackTime, m.isAlive
-        )
+        withHp(m, potentialHp)
       } else if (lethal) {
-        Minion(
-          m.id, m.team, m.minionType, m.position,
-          0.0, m.stats, m.targetId, m.lastAttackTime, false
-        )
+        killMinion(m)
       } else {
-        Minion(
-          m.id, m.team, m.minionType, m.position,
-          1.0, m.stats, m.targetId, m.lastAttackTime, m.isAlive
-        )
+        withHp(m, 1.0)
       }
     } else {
       m

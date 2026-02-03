@@ -275,71 +275,29 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
     if (currentTarget == TANK_TARGET_ID) {
        if (distance(minion.position, tankPos) <= TANK_ATTACK_RANGE) {
          if (canAttack(minion, currentTime)) {
-           Minion(
-             minion.id, minion.team, minion.minionType, minion.position,
-             minion.currentHp, minion.stats, currentTarget, currentTime, minion.isAlive
-           )
+           withAttack(minion, currentTarget, currentTime)
          } else {
-           Minion(
-             minion.id, minion.team, minion.minionType, minion.position,
-             minion.currentHp, minion.stats, currentTarget, minion.lastAttackTime, minion.isAlive
-           )
+           withTarget(minion, currentTarget)
          }
        } else {
          val newPos = moveTowards(minion, tankPos, deltaTime, allMinions)
-         Minion(
-           minion.id, minion.team, minion.minionType, newPos,
-           minion.currentHp, minion.stats, currentTarget, minion.lastAttackTime, minion.isAlive
-         )
+         withTarget(withPosition(minion, newPos), currentTarget)
        }
     } else if (currentTarget >= 0) {
       val targetOpt = findMinionById(allMinions, currentTarget)
       targetOpt match {
         case None() =>
-           Minion(
-            minion.id, minion.team, minion.minionType, minion.position,
-            minion.currentHp, minion.stats, -1, minion.lastAttackTime, minion.isAlive
-          )
+          withTarget(minion, -1)
         case Some(target) =>
           if (isInAttackRange(minion, target.position)) {
             if (canAttack(minion, currentTime)) {
-              Minion(
-                minion.id,
-                minion.team,
-                minion.minionType,
-                minion.position,
-                minion.currentHp,
-                minion.stats,
-                currentTarget,
-                currentTime,
-                minion.isAlive
-              )
+              withAttack(minion, currentTarget, currentTime)
             } else {
-              Minion(
-                minion.id,
-                minion.team,
-                minion.minionType,
-                minion.position,
-                minion.currentHp,
-                minion.stats,
-                currentTarget,
-                minion.lastAttackTime,
-                minion.isAlive
-              )
+              withTarget(minion, currentTarget)
             }
           } else {
             val newPos = moveTowards(minion, target.position, deltaTime, allMinions)
-            Minion(
-              minion.id,
-              minion.team,
-              minion.minionType,
-              newPos,
-              minion.currentHp,
-              minion.stats,
-              currentTarget,
-              minion.lastAttackTime,
-              minion.isAlive
-            )
+            withTarget(withPosition(minion, newPos), currentTarget)
           }
       }
     } else {
@@ -351,25 +309,16 @@ def updateMinion(minion: Minion, allMinions: List[Minion],
       if (enemyTurret.isAlive) {
         if (isInAttackRange(minion, enemyTurret.position)) {
           if (canAttack(minion, currentTime)) {
-            Minion(
-              minion.id, minion.team, minion.minionType, minion.position,
-              minion.currentHp, minion.stats, -1, currentTime, minion.isAlive
-            )
+            withAttack(minion, -1, currentTime)
           } else minion
         } else {
           val newPos = moveTowards(minion, enemyTurret.position, deltaTime, allMinions)
-          Minion(
-            minion.id, minion.team, minion.minionType, newPos,
-            minion.currentHp, minion.stats, -1, minion.lastAttackTime, minion.isAlive
-          )
+          withPosition(minion, newPos)
         }
       } else {
         val goal = getGoalPosition(minion)
         val newPos = moveTowards(minion, goal, deltaTime, allMinions)
-        Minion(
-          minion.id, minion.team, minion.minionType, newPos,
-          minion.currentHp, minion.stats, -1, minion.lastAttackTime, minion.isAlive
-        )
+        withPosition(minion, newPos)
       }
     }
   }

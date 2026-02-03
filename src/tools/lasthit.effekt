@@ -4,6 +4,7 @@ import src/types
 import src/utils/math
 import src/utils/lists
 import src/effects
+import src/game/minion
 
 /**
  * Applies the Last Hit tool effect.
@@ -27,14 +28,7 @@ def applyLastHit(clickPos: Vec2): Unit / State = {
   target match {
     case Some(minion) =>
       val newMinions = listMap(state.minions) { m =>
-        if (m.id == minion.id) {
-          Minion(
-            m.id, m.team, m.minionType, m.position, 
-            0.0, m.stats, m.targetId, m.lastAttackTime, false
-          )
-        } else {
-          m
-        }
+        if (m.id == minion.id) killMinion(m) else m
       }
       setMinions(newMinions)
       
